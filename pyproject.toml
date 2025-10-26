@@ -24,3 +24,11 @@ dependencies = [
     "pyyaml",
     "replicate",
 ]
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+include = ["purplecrayon*"]
+exclude = ["tests*", "examples*", "assets*", "downloads*", "processed*", "originals*"]
+
