@@ -18,9 +18,75 @@ class ImageService:
         self.catalog = AssetCatalog(assets_dir / "catalog.yaml")
     
     async def search_local_assets(self, request: AssetRequest) -> List[ImageResult]:
-        """Search local catalog for matching assets."""
-        # TODO: Implement local asset search
-        return []
+        """Search the local catalog and return matching assets."""
+        if "local" in request.exclude_sources:
+            return []
+        if request.preferred_sources and "local" not in request.preferred_sources:
+            return []
+
+        query = request.description or ""
+        tags = request.tags or []
+        candidates = self.catalog.search_assets(query=query, tags=tags)
+
+        results: List[ImageResult] = []
+        for asset in candidates:
+            rel_path = asset.get("path")
+            if not rel_path:
+                continue
+
+            file_path = self.assets_dir / rel_path
+            if not file_path.exists():
+                # Skip missing files silently; catalog sync will remove them later
+                continue
+
+            width = asset.get("width")
+            height = asset.get("height")
+            fmt = (asset.get("format") or "").lower()
+            has_alpha = asset.get("has_alpha")
+
+            if request.format and fmt and fmt != request.format.lower():
+                continue
+            if request.has_alpha is True and not has_alpha:
+                continue
+            if request.has_alpha is False and has_alpha:
+                continue
+
+            if request.width and width and width < request.width:
+                continue
+            if request.height and height and height < request.height:
+                continue
+            if request.min_width and width and width < request.min_width:
+                continue
+            if request.min_height and height and height < request.min_height:
+                continue
+
+            if request.orientation and width and height:
+                if width == height:
+                    orientation = "square"
+                elif width > height:
+                    orientation = "landscape"
+                else:
+                    orientation = "portrait"
+                if orientation != request.orientation:
+                    continue
+
+            results.append(
+                ImageResult(
+                    path=str(file_path),
+                    source="local",
+                    provider="catalog",
+                    width=width or 0,
+                    height=height or 0,
+                    format=fmt or "unknown",
+                    description=asset.get("description"),
+                    match_score=None,
+                )
+            )
+
+            if len(results) >= request.max_results:
+                break
+
+        return results
     
     async def fetch_stock_images(self, request: AssetRequest) -> List[ImageResult]:
         """Fetch from all stock photo APIs."""

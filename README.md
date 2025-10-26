@@ -42,11 +42,9 @@ uv run python -m main --mode scrape --url "https://example.com/gallery"
 # Sort and update catalog in assets/ directory
 uv run python -m main --sort-catalog
 
-# Placeholder: rebuild catalog (not yet implemented)
-uv run python -m main --rebuild-catalog
+# (Reserved) Additional modes
+# `process` and `benchmark` are placeholders for future workflows; the CLI currently reports them as not yet implemented.
 ```
-
-> ℹ️ The `process` and `benchmark` modes are reserved for future workflows; the CLI currently reports them as not yet implemented.
 
 The output paths will be printed to stdout. Processed images are written to `downloads/` or the file path specified in the prompt.
 
@@ -142,15 +140,6 @@ Use `--sort-catalog` to organize and update your assets directory:
 - **Remove Orphaned Entries**: Remove catalog entries for files that no longer exist
 - **Show Statistics**: Display updated catalog statistics
 - **Example**: `uv run python -m main --sort-catalog`
-
-## Rebuild Catalog Mode
-
-Use `--rebuild-catalog` to completely rebuild the catalog from scratch:
-- **Complete Reset**: Clears existing catalog and rebuilds from all files in assets/
-- **Fresh Start**: Useful when catalog gets corrupted or has duplicate entries
-- **Full Scan**: Scans all image files and creates new catalog entries
-- **Clean State**: Ensures catalog matches exactly what's in the assets directory
-- **Example**: `uv run python -m main --rebuild-catalog`
 
 ## Benchmark Mode
 

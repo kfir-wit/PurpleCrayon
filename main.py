@@ -11,7 +11,6 @@ def main() -> None:
     parser.add_argument("--mode", default="full", choices=["full", "search", "generate", "process", "benchmark", "scrape"], help="Run mode")
     parser.add_argument("--url", help="URL to scrape (required for scrape mode)")
     parser.add_argument("--sort-catalog", action="store_true", help="Sort and update catalog in assets/ directory")
-    parser.add_argument("--rebuild-catalog", action="store_true", help="Completely rebuild catalog from scratch")
     args = parser.parse_args()
     
     # Initialize package
@@ -37,15 +36,6 @@ def main() -> None:
             print(f"  By aspect ratio: {final_stats.get('by_aspect_ratio', {})}")
         else:
             print(f"❌ Sort catalog failed: {result['error']}")
-        return
-    
-    # Handle rebuild-catalog mode
-    if args.rebuild_catalog:
-        print("🔄 Completely rebuilding catalog from scratch...")
-        print("=" * 50)
-        
-        # TODO: Implement rebuild_catalog method
-        print("❌ Rebuild catalog not yet implemented in package API")
         return
     
     # Validate scrape mode

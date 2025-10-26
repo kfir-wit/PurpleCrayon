@@ -1,25 +1,17 @@
 from __future__ import annotations
 
 import asyncio
-from io import BytesIO
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-import httpx
 import replicate as replicate_sdk
 from google import genai
 from google.genai import types
-from PIL import Image
 
 from ..utils.config import get_env
 
 
-# Midjourney/ImagineAPI removed - using Gemini and Replicate only
-
-
-async def generate_with_imagen(prompt: str, **params: Any) -> Dict[str, Any]:
-    """Use Replicate to call Google's Imagen or Nano Banana (if exposed).
-    Fallback to SDXL if model not available.
-    """
+def _generate_with_imagen_sync(prompt: str, **params: Any) -> Dict[str, Any]:
+    """Blocking Imagen call executed inside a worker thread."""
     token = get_env("REPLICATE_API_TOKEN")
     if not token:
         return {"status": "skipped", "reason": "REPLICATE_API_TOKEN missing"}
@@ -36,6 +28,11 @@ async def generate_with_imagen(prompt: str, **params: Any) -> Dict[str, Any]:
         urls = list(output)
     url = urls[-1] if urls else None
     return {"status": "succeeded", "url": url, "all": urls}
+
+
+async def generate_with_imagen(prompt: str, **params: Any) -> Dict[str, Any]:
+    """Run Imagen generation without blocking the event loop."""
+    return await asyncio.to_thread(_generate_with_imagen_sync, prompt, **params)
 
 
 def generate_with_gemini(prompt: str, aspect_ratio: str = "1:1", **params: Any) -> Dict[str, Any]:
@@ -102,4 +99,4 @@ def generate_with_gemini(prompt: str, aspect_ratio: str = "1:1", **params: Any) 
 
 async def generate_with_gemini_async(prompt: str, aspect_ratio: str = "1:1", **params: Any) -> Dict[str, Any]:
     """Async wrapper for Gemini image generation."""
-    return generate_with_gemini(prompt, aspect_ratio, **params)
+    return await asyncio.to_thread(generate_with_gemini, prompt, aspect_ratio, **params)

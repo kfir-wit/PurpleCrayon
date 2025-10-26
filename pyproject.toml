@@ -17,14 +17,10 @@ dependencies = [
     "openai",
     "pillow",
     "playwright",
+    "pytest",
+    "pytest-asyncio",
     "pydantic>=2",
     "python-dotenv",
     "pyyaml",
     "replicate",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest",
-    "pytest-asyncio",
 ]
