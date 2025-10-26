@@ -1,179 +1,176 @@
-# PurpleCrayon
+# PurpleCrayon - AI Graphics Agent
 
-A Python package for AI agent development with LangChain and LangGraph, built with modern Python patterns and async-first design.
+Runs a LangGraph-based agent that searches local assets, stock sites, scrapes the web, and generates images using Google Gemini (Nano Banana) and Imagen (via Replicate). It can convert/resize images while preserving originals and maintains a local asset catalog.
 
-## Features
+## Quickstart
 
-- 🤖 **AI Agent Framework**: Build sophisticated AI agents with ease
-- 🔗 **LangChain Integration**: Seamless integration with LangChain tools and chains
-- 📊 **LangGraph Support**: Create complex agent workflows with LangGraph
-- ⚡ **Async-First Design**: Built for modern Python with async/await patterns
-- 🛠️ **Rich Tool Ecosystem**: Decorators and utilities for tool creation
-- 🧪 **Comprehensive Testing**: Full test suite with pytest and async support
-- 📦 **Modern Packaging**: Uses pyproject.toml and follows Python packaging best practices
+1. Copy `.env.example` to `.env` and fill in keys:
+   - `OPENAI_API_KEY` (for reasoning/tools via LangChain)
+   - `GEMINI_API_KEY` (for Google Gemini/Nano Banana image generation)
+   - `SERPER_API_KEY` (for web search)
+   - `FIRECRAWL_API_KEY` (for web scraping)
+   - `REPLICATE_API_TOKEN` (for Imagen/Stable Diffusion)
+   - `UNSPLASH_ACCESS_KEY`, `PEXELS_API_KEY`, `PIXABAY_API_KEY`
+   - `LANGCHAIN_API_KEY` (optional, for LangSmith tracing)
 
-## Installation
-
-### From Source
-
-```bash
-git clone https://github.com/purplecrayon/purplecrayon.git
-cd purplecrayon
-pip install -e .
-```
-
-### Development Installation
+2. Install dependencies (with [uv](https://github.com/astral-sh/uv)):
 
 ```bash
-git clone https://github.com/purplecrayon/purplecrayon.git
-cd purplecrayon
-pip install -e ".[dev,test]"
+uv add beautifulsoup4 firecrawl-py google-genai httpx langchain langchain-core \
+  langchain-openai langgraph lxml openai pillow playwright pydantic python-dotenv \
+  pyyaml replicate
+uv run playwright install
 ```
 
-## Quick Start
+3. Place your prompt in `input/prompt.md`.
 
-### Creating Your First Agent
+4. Run the agent:
+
+```bash
+# Full workflow (default)
+uv run python -m main --mode full
+
+# Only search for stock photos
+uv run python -m main --mode search
+
+# Only generate AI images
+uv run python -m main --mode generate
+
+# Scrape mode - download all images from a URL
+uv run python -m main --mode scrape --url "https://example.com/gallery"
+
+# Sort and update catalog in assets/ directory
+uv run python -m main --sort-catalog
+
+# Placeholder: rebuild catalog (not yet implemented)
+uv run python -m main --rebuild-catalog
+```
+
+> ℹ️ The `process` and `benchmark` modes are reserved for future workflows; the CLI currently reports them as not yet implemented.
+
+The output paths will be printed to stdout. Processed images are written to `downloads/` or the file path specified in the prompt.
+
+## Using from another project
+
+- Install (editable for development):
+
+```bash
+uv pip install -e .
+```
+
+- Or install after publishing to an index:
+
+```bash
+pip install purple-crayon
+```
+
+- Import and use:
 
 ```python
-from purplecrayon import create_agent, run_agent_async
+from purplecrayon import PurpleCrayon, AssetRequest
 
-# Create an agent
-agent = create_agent(
-    name="my_agent",
-    description="A helpful AI agent",
-    model="gpt-4",
-    temperature=0.7
-)
-
-# Run the agent
-result = await run_agent_async(agent, "Hello, world!")
-print(result)
+crayon = PurpleCrayon(assets_dir="./assets")
+request = AssetRequest(description="hero background", width=1920, height=1080)
+result = crayon.generate(request)
 ```
 
-### Using Decorators for LangChain Tools
+- Output locations when installed:
+  - Files and folders (downloads/, originals/, processed/, input/, config/, data/) are resolved relative to your current working directory (CWD), not inside site-packages.
+  - This means running your script from `/path/to/app` will write to `/path/to/app/downloads/` etc.
 
-```python
-from purplecrayon.decorators import langchain_tool, async_tool
+- Running examples from source without installing:
+  - From repo root, you can run examples by installing editable as above, or uncomment the two sys.path lines at the top of `examples/generate_example.py`.
 
-@langchain_tool(
-    name="weather_tool",
-    description="Get current weather information"
-)
-@async_tool
-async def get_weather(location: str) -> str:
-    """Get weather for a specific location."""
-    # Your weather API logic here
-    return f"Weather in {location}: Sunny, 72°F"
+## Notes
+- The catalog is stored in `assets/catalog.yaml`.
+- You can override the output path via the "Output Path" in `input/prompt.md`.
+- **AI Generation Priority**: Google Gemini (Nano Banana) → Imagen (Replicate)
+- Gemini requires `GEMINI_API_KEY` for image generation via the [Google Gemini API](https://ai.google.dev/gemini-api/docs/image-generation#python_2).
+- **Debugging**: The agent provides verbose output showing each step and API responses.
+- **LangSmith Tracing**: Uncomment the tracing lines in `purplecrayon/agent/graph.py` and add `LANGCHAIN_API_KEY` to enable detailed tracing.
 
-# Add the tool to your agent
-agent.add_tool("weather", get_weather)
-```
+## Output Organization
 
-### Creating Agent Workflows
+The agent creates organized folders for easy selection:
+- `downloads/stock/` - Stock photos from Unsplash, Pexels, Pixabay
+- `downloads/ai/` - AI-generated images from Gemini, Imagen
+- `downloads/downloaded/` - Images scraped from URLs (scrape mode)
+- `downloads/final/` - Processed images ready for use (resized to your specs)
 
-```python
-from purplecrayon.utils import create_agent_workflow
+This lets you compare stock photos vs AI-generated options and choose your favorite!
 
-# Define workflow steps
-workflow_steps = [
-    {
-        "name": "analyze_input",
-        "function": analyze_user_input,
-        "description": "Analyze the user's input",
-        "next": "generate_response"
-    },
-    {
-        "name": "generate_response",
-        "function": generate_ai_response,
-        "description": "Generate AI response"
-    }
-]
+**Manual Curation**: Files are saved to `downloads/` subdirectories. You manually move files you like to `assets/` folder. Downloads are cleared between runs.
 
-workflow = create_agent_workflow(workflow_steps)
-```
+## Ideal Storage Organization
 
-## Project Structure
+**For keeping assets you like:**
 
 ```
-purplecrayon/
-├── purplecrayon/                 # Main package folder
-│   ├── __init__.py               # Package initialization
-│   ├── core.py                   # Core agent functionality
-│   ├── decorators.py             # LangChain tool decorators
-│   └── utils.py                  # Helper functions
-├── tests/                        # Unit tests
-│   ├── __init__.py
-│   └── test_core.py
-├── pyproject.toml               # Modern build system metadata
-├── README.md
-├── LICENSE
-└── .gitignore
+assets/
+├── catalog.yaml     # YAML catalog with metadata
+├── stock/          # Your curated stock photos
+├── ai/             # Your curated AI-generated images  
+├── proprietary/    # Customer-provided images
+└── downloaded/     # Your curated scraped images
 ```
 
-## Development
+**Benefits:**
+- **Organized by source** - Easy to find what you need
+- **Separate from downloads** - Downloads auto-clean between runs
+- **Manual curation** - You choose what to keep
+- **Proper naming** - Images automatically renamed with dimensions and content
+- **YAML catalog** - Searchable metadata for all assets
 
-### Running Tests
+## Scrape Mode
 
-```bash
-# Run all tests
-pytest
+Use `--mode scrape --url "URL"` to download all images from a website:
+- **Firecrawl Integration**: Uses Firecrawl to extract all images from the URL
+- **Output Location**: All images saved to `downloads/downloaded/`
+- **No Structure Preservation**: Images are flattened into a single folder
+- **Example**: `uv run python -m main --mode scrape --url "https://example.com/gallery"`
 
-# Run with coverage
-pytest --cov=purplecrayon
+## Sort Catalog Mode
 
-# Run specific test file
-pytest tests/test_core.py
-```
+Use `--sort-catalog` to organize and update your assets directory:
+- **Rename Images**: Automatically rename files based on content, size, and alpha layer (description_dimensions[_alpha].ext)
+- **Content Analysis**: Extracts meaningful descriptions from filenames using pattern matching
+- **LLM Analysis**: For unstructured filenames, uses AI to analyze image content and generate descriptive names
+- **Size Detection**: Gets actual image dimensions and includes in filename
+- **Alpha Detection**: Detects PNG files with transparent pixels and adds _alpha suffix
+- **Smart Naming**: Only uses LLM for files that aren't properly structured (saves time and tokens)
+- **Update Catalog**: Scan assets directory and update YAML catalog with current files
+- **Remove Orphaned Entries**: Remove catalog entries for files that no longer exist
+- **Show Statistics**: Display updated catalog statistics
+- **Example**: `uv run python -m main --sort-catalog`
 
-### Code Formatting
+## Rebuild Catalog Mode
 
-```bash
-# Format code with black
-black purplecrayon tests
+Use `--rebuild-catalog` to completely rebuild the catalog from scratch:
+- **Complete Reset**: Clears existing catalog and rebuilds from all files in assets/
+- **Fresh Start**: Useful when catalog gets corrupted or has duplicate entries
+- **Full Scan**: Scans all image files and creates new catalog entries
+- **Clean State**: Ensures catalog matches exactly what's in the assets directory
+- **Example**: `uv run python -m main --rebuild-catalog`
 
-# Sort imports with isort
-isort purplecrayon tests
+## Benchmark Mode
 
-# Type checking with mypy
-mypy purplecrayon
-```
+Use `--mode benchmark` to test all available tools and compare results:
+- **Stock Photos**: Downloads from Unsplash, Pexels, and Pixabay with source labels
+- **AI Generation**: Tests Gemini and Imagen with source labels
+- **Filename Format**: `stock_unsplash_0.jpg`, `ai_gemini_0.jpg`, etc.
+- **Purpose**: Compare quality and performance of different tools
 
-### Pre-commit Hooks
+## Smart Image Selection
 
-```bash
-# Install pre-commit hooks
-pre-commit install
+The agent now uses intelligent image selection:
+1. **Exact size match** - Prioritizes images with your exact dimensions
+2. **Aspect ratio match** - Finds images with matching proportions
+3. **Orientation match** - Prefers landscape for wallpapers, portrait for social media
+4. **Quality preservation** - Downloads highest resolution available
+5. **Auto-renaming** - Images renamed with content and dimensions (e.g., `giant_panda_1920x1080.jpg`)
 
-# Run hooks manually
-pre-commit run --all-files
-```
+## Auto-Cleanup
 
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- [LangChain](https://github.com/langchain-ai/langchain) for the amazing AI framework
-- [LangGraph](https://github.com/langchain-ai/langgraph) for workflow management
-- The Python community for excellent tooling and libraries
-
-## Support
-
-- 📖 [Documentation](https://purplecrayon.readthedocs.io)
-- 🐛 [Issue Tracker](https://github.com/purplecrayon/purplecrayon/issues)
-- 💬 [Discussions](https://github.com/purplecrayon/purplecrayon/discussions)
-
----
-
-Made with ❤️ by the PurpleCrayon Team
+- **Downloads cleared** between runs - no accumulation of old files
+- **Manual curation** - Move files you like to your `assets/` folder
+- **Proper naming** - All images automatically renamed with dimensions and content description

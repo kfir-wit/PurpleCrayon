@@ -4,4 +4,27 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "beautifulsoup4",
+    "firecrawl-py",
+    "google-genai",
+    "httpx",
+    "langchain",
+    "langchain-core",
+    "langchain-openai",
+    "langgraph",
+    "lxml",
+    "openai",
+    "pillow",
+    "playwright",
+    "pydantic>=2",
+    "python-dotenv",
+    "pyyaml",
+    "replicate",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]

@@ -1,19 +1,27 @@
-"""
-PurpleCrayon - A Python package for AI agent development with LangChain and LangGraph.
+"""PurpleCrayon - AI graphics sourcing and generation toolkit."""
 
-This package provides tools and utilities for building AI agents with modern Python patterns.
-"""
+from __future__ import annotations
+
+import sys as _sys
+
+from .core import (
+    AssetRequest,
+    ImageResult,
+    OperationResult,
+    PurpleCrayon,
+    markdownRequest,
+)
 
 __version__ = "0.1.0"
 __author__ = "PurpleCrayon Team"
 
-# Import main APIs for easy access
-from .core import *
-from .decorators import *
-from .utils import *
-
 __all__ = [
-    # Core functionality will be defined in core.py
-    # Decorators will be defined in decorators.py  
-    # Utilities will be defined in utils.py
+    "AssetRequest",
+    "ImageResult",
+    "OperationResult",
+    "PurpleCrayon",
+    "markdownRequest",
 ]
+
+# Backwards compatibility shim for earlier module name.
+_sys.modules.setdefault("purple_crayon", _sys.modules[__name__])
