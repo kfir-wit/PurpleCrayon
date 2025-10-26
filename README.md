@@ -24,7 +24,9 @@ uv run playwright install
 
 3. Place your prompt in `input/prompt.md`.
 
-4. Run the agent:
+4. (Optional) Review the sample `assets/` directory. It contains a starter `catalog.yaml` and a few example files you can use to validate local catalog lookups.
+
+5. Run the agent:
 
 ```bash
 # Full workflow (default)
@@ -47,6 +49,34 @@ uv run python -m main --sort-catalog
 ```
 
 The output paths will be printed to stdout. Processed images are written to `downloads/` or the file path specified in the prompt.
+
+## Sample Assets & Examples
+
+- `assets/` – contains a starter catalog plus a few example images so you can exercise local lookups immediately.
+- `examples/` – runnable scripts that demonstrate the core APIs.
+
+Run them with uv (or your preferred Python entry point):
+
+```bash
+# Generate AI artwork with the packaged APIs
+uv run python examples/generate_example.py
+
+# Fetch and download stock photos (saves into ./example_assets/stock)
+uv run python examples/fetch_example.py
+
+# End-to-end sourcing workflow
+uv run python examples/source_example.py
+```
+
+Each script creates an `example_assets/` workspace so it does not interfere with the curated `assets/` directory. Scraping demos are also available:
+
+```bash
+# Auto-select an engine (or pass --engine firecrawl/playwright/beautifulsoup)
+uv run python examples/scrape_example.py https://example.com/gallery
+
+# Compare scraping engines side-by-side
+uv run python examples/scrape_comparison.py https://wordpress.org/showcase/
+```
 
 ## Using from another project
 
