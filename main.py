@@ -13,6 +13,7 @@ def main() -> None:
     parser.add_argument("--sort-catalog", action="store_true", help="Sort and update catalog in assets/ directory")
     parser.add_argument("--cleanup", action="store_true", help="Clean up corrupted and junk images")
     parser.add_argument("--keep-junk", action="store_true", help="Keep junk files when cleaning (only remove corrupted)")
+    parser.add_argument("--format", choices=["yaml", "json", "both"], default="both", help="Catalog format (default: both)")
     args = parser.parse_args()
     
     # Initialize package
@@ -23,7 +24,7 @@ def main() -> None:
         print("🧹 Cleaning up corrupted and junk images...")
         print("=" * 50)
         
-        result = crayon.cleanup_assets(remove_junk=not args.keep_junk)
+        result = crayon.cleanup_assets(remove_junk=not args.keep_junk, format=args.format)
         
         if result["success"]:
             cleanup_stats = result['cleanup_stats']

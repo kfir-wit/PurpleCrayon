@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 import yaml
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
@@ -69,6 +70,26 @@ class AssetCatalog:
         except Exception as e:
             print(f"Error saving catalog: {e}")
     
+    def save_json_catalog(self, json_path: Path = None):
+        """Save the catalog to JSON file."""
+        if json_path is None:
+            json_path = self.catalog_path.with_suffix('.json')
+        
+        try:
+            # Ensure stats come first in the JSON
+            ordered_catalog = {
+                "stats": self.catalog.get("stats", {}),
+                "assets": self.catalog.get("assets", [])
+            }
+            
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(ordered_catalog, f, indent=2, ensure_ascii=False)
+            
+            return True
+        except Exception as e:
+            print(f"Error saving JSON catalog: {e}")
+            return False
+    
     def _get_image_info(self, file_path: Path) -> Dict[str, Any]:
         """Extract image metadata."""
         try:
@@ -101,6 +122,17 @@ class AssetCatalog:
         """Determine which assets/ subfolder this belongs to."""
         path_str = str(file_path).lower()
         
+        # Check directory structure first
+        if "/ai/" in path_str or "\\ai\\" in path_str:
+            return "ai"
+        elif "/stock/" in path_str or "\\stock\\" in path_str:
+            return "stock"
+        elif "/proprietary/" in path_str or "\\proprietary\\" in path_str:
+            return "proprietary"
+        elif "/downloaded/" in path_str or "\\downloaded\\" in path_str:
+            return "downloaded"
+        
+        # Fallback to filename patterns
         if "ai_gemini" in path_str or "ai_" in path_str:
             return "ai"
         elif "stock_" in path_str or "unsplash" in path_str or "pexels" in path_str or "pixabay" in path_str:
@@ -175,12 +207,17 @@ class AssetCatalog:
             if not image_info:
                 raise ValueError(f"Could not read image: {file_path}")
             
+            # Re-determine source category if not provided
+            if source is None:
+                source = self._determine_source_category(file_path)
+            
             # Update the existing asset
             existing_asset.update({
                 "filename": file_path.name,
                 "width": image_info["width"],
                 "height": image_info["height"],
                 "format": image_info["format"],
+                "source": source,
                 "aspect_ratio": image_info["aspect_ratio"],
                 "aspect_category": image_info["aspect_category"],
                 "has_alpha": image_info.get("has_alpha", False),
@@ -458,7 +495,7 @@ class AssetCatalog:
         print(f"📊 Catalog rebuild complete: {added} assets added, {errors} errors")
         return {"added": added, "errors": errors}
     
-    def cleanup_and_update_catalog(self, assets_dir: Path, remove_junk: bool = True) -> Dict[str, int]:
+    def cleanup_and_update_catalog(self, assets_dir: Path, remove_junk: bool = True, format: str = "both") -> Dict[str, int]:
         """Clean up corrupted/junk images and update catalog."""
         from .image_validation_tools import cleanup_corrupted_images
         
@@ -479,6 +516,14 @@ class AssetCatalog:
         # Now update the catalog
         print("\n📊 Updating catalog after cleanup...")
         catalog_stats = self.update_catalog_from_assets(assets_dir)
+        
+        # Export in requested format(s)
+        if format.lower() in ["yaml", "both"]:
+            self._save_catalog()
+        
+        if format.lower() in ["json", "both"]:
+            json_path = assets_dir / "catalog.json"
+            self.save_json_catalog(json_path)
         
         # Combine stats
         total_removed = cleanup_stats['corrupted'] + cleanup_stats.get('junk', 0)

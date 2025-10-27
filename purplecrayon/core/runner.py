@@ -166,11 +166,11 @@ class PurpleCrayon:
                 "error": str(e)
             }
     
-    def cleanup_assets(self, remove_junk: bool = True) -> Dict[str, Any]:
+    def cleanup_assets(self, remove_junk: bool = True, format: str = "both") -> Dict[str, Any]:
         """Clean up corrupted and junk images, then update catalog."""
         try:
             # Clean up and update catalog
-            cleanup_stats = self.catalog.cleanup_and_update_catalog(self.assets_dir, remove_junk)
+            cleanup_stats = self.catalog.cleanup_and_update_catalog(self.assets_dir, remove_junk, format)
             
             return {
                 "success": True,
