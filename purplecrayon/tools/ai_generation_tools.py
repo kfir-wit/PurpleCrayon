@@ -4,8 +4,8 @@ import asyncio
 from typing import Any, Dict
 
 import replicate as replicate_sdk
-from google import genai
-from google.genai import types
+import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 from ..utils.config import get_env
 
@@ -54,21 +54,28 @@ def generate_with_gemini(prompt: str, aspect_ratio: str = "1:1", **params: Any) 
         return {"status": "skipped", "reason": "GEMINI_API_KEY or GOOGLE_API_KEY missing"}
     
     try:
-        client = genai.Client(api_key=api_key)
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
         
         # Configure aspect ratio if provided
-        config = None
+        generation_config = None
         if aspect_ratio != "1:1":
-            config = types.GenerateContentConfig(
-                image_config=types.ImageConfig(
-                    aspect_ratio=aspect_ratio,
-                )
+            generation_config = genai.types.GenerationConfig(
+                # Note: aspect_ratio is not directly supported in GenerationConfig
+                # We'll use the prompt to specify aspect ratio instead
+                temperature=0.7,
+                top_p=0.8,
+                top_k=40
             )
         
-        response = client.models.generate_content(
-            model="gemini-2.5-flash-image",
-            contents=[prompt],
-            config=config,
+        # Add aspect ratio to prompt if specified
+        enhanced_prompt = prompt
+        if aspect_ratio != "1:1":
+            enhanced_prompt = f"{prompt}\n\nAspect ratio: {aspect_ratio}"
+        
+        response = model.generate_content(
+            contents=[enhanced_prompt],
+            generation_config=generation_config
         )
         
         print(f"🔍 Gemini response: {response}")
@@ -142,39 +149,23 @@ def generate_with_gemini_image_to_image(prompt: str, source_image_path: str, asp
         elif source_path.suffix.lower() in ['.gif']:
             mime_type = "image/gif"
         
-        client = genai.Client(api_key=api_key)
-        
-        # Configure aspect ratio if provided
-        config = None
-        if aspect_ratio != "1:1":
-            config = types.GenerateContentConfig(
-                image_config=types.ImageConfig(
-                    aspect_ratio=aspect_ratio,
-                )
-            )
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
         
         # Create the content with both text and image
         # For Gemini, we need to use the proper Content structure
-        from google.genai import types as genai_types
-        
         contents = [
-            genai_types.Content(
-                parts=[
-                    genai_types.Part(text=prompt),
-                    genai_types.Part(
-                        inline_data=genai_types.Blob(
-                            mime_type=mime_type,
-                            data=image_data
-                        )
-                    )
-                ]
-            )
+            {
+                "text": prompt,
+                "inline_data": {
+                    "mime_type": mime_type,
+                    "data": image_data
+                }
+            }
         ]
         
-        response = client.models.generate_content(
-            model="gemini-2.5-flash-image",
-            contents=contents,
-            config=config,
+        response = model.generate_content(
+            contents=contents
         )
         
         print(f"🔍 Gemini image-to-image response: {response}")
