@@ -16,12 +16,34 @@ Main Classes:
     OperationResult: Generic operation result wrapper
 
 Key Functions:
-    scrape_website_comprehensive: Comprehensive web scraping
-    cleanup_corrupted_images: Image validation and cleanup
-    validate_image_file: Single image validation
-    AssetCatalog: Catalog management system
-    clone_image: Clone images for royalty-free alternatives
-    clone_images_from_directory: Batch image cloning
+    # Web Scraping
+    scrape_website_comprehensive: Comprehensive web scraping with multiple engines
+    scrape_with_engine: Scrape using specific engine (firecrawl, playwright, beautifulsoup)
+    scrape_with_fallback: Scrape with automatic engine fallback
+    
+    # AI Generation
+    generate_with_gemini: Generate images using Google Gemini
+    
+    # Stock Photo Fetching
+    search_unsplash: Search Unsplash for stock photos
+    search_pexels: Search Pexels for stock photos
+    search_pixabay: Search Pixabay for stock photos
+    
+    # Image Validation & Cleanup
+    cleanup_corrupted_images: Clean up corrupted and junk images
+    validate_image_file: Validate single image file
+    validate_image_with_llm: Use AI to validate image content
+    
+    # Asset Management
+    AssetCatalog: Complete catalog management system
+    scan_and_rename_assets: Rename files based on content analysis
+    
+    # Image Cloning
+    clone_image: Clone single image for royalty-free alternative
+    clone_images_from_directory: Batch clone images from directory
+    describe_image_for_regeneration: Analyze image for AI regeneration
+    check_similarity: Check similarity between images
+    is_sufficiently_different: Verify clone is sufficiently different
 
 Example Usage:
     from purplecrayon import PurpleCrayon, AssetRequest
@@ -73,6 +95,7 @@ from .tools.scraping_tools import (
     scrape_with_fallback,
 )
 from .tools.image_renaming_tools import scan_and_rename_assets
+from .tools.ai_generation_tools import generate_with_gemini
 from .tools.clone_image_tools import (
     clone_image,
     clone_images_from_directory,
@@ -106,6 +129,9 @@ __all__ = [
     "scrape_website_comprehensive",
     "scrape_with_engine",
     "scrape_with_fallback",
+    
+    # AI generation
+    "generate_with_gemini",
     
     # File management
     "scan_and_rename_assets",

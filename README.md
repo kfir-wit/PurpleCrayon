@@ -262,6 +262,17 @@ The agent now uses intelligent image selection:
 
 ## Documentation
 
-- **Clone API Documentation**: See [docs/CLONE_API.md](docs/CLONE_API.md) for comprehensive clone functionality documentation
+### Comprehensive API Documentation
+- **[API Overview](docs/API_OVERVIEW.md)**: Complete overview of all APIs and functionality
+- **[Generate API](docs/GENERATE_API.md)**: AI image generation with Gemini and Replicate
+- **[Fetch API](docs/FETCH_API.md)**: Stock photo search and download from Unsplash, Pexels, Pixabay
+- **[Source API](docs/SOURCE_API.md)**: Unified search across all available sources
+- **[Scrape API](docs/SCRAPE_API.md)**: Web scraping with multiple engines and anti-detection
+- **[Clone API](docs/CLONE_API.md)**: Create royalty-free alternatives using AI
+- **[Catalog API](docs/CATALOG_API.md)**: Asset management and organization system
+
+### Quick Reference
 - **API Reference**: All functions and classes are documented in the package `__init__.py`
-- **Examples**: Check the `examples/` directory for working code samples
+- **Examples Index**: [Complete examples guide](docs/EXAMPLES_INDEX.md) with detailed usage instructions
+- **Examples Directory**: Working code samples in the `examples/` directory
+- **CLI Reference**: Command-line interface documentation in this README
