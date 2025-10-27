@@ -6,7 +6,7 @@ from ..core.types import AssetRequest, ImageResult
 from ..tools.asset_management_tools import AssetCatalog
 from ..tools.stock_photo_tools import search_unsplash, search_pexels, search_pixabay
 from ..tools.ai_generation_tools import generate_with_gemini_async, generate_with_imagen
-from ..tools.scraping_tools import scrape_with_engine, scrape_with_fallback
+from ..tools.scraping_tools import scrape_with_engine, scrape_with_fallback, scrape_website_comprehensive
 from ..tools.smart_selection_tools import select_best_images, extract_size_from_prompt
 from ..tools.file_tools import download_file
 from ..tools.image_validation_tools import validate_all_images
@@ -167,38 +167,79 @@ class ImageService:
         
         return results
     
-    async def scrape_website(self, url: str, engine: Optional[str] = None) -> List[ImageResult]:
-        """Scrape images from URL using specified engine or fallback."""
+    async def scrape_website(self, url: str, engine: Optional[str] = None, verbose: bool = False) -> List[ImageResult]:
+        """Scrape images from URL using specified engine or fallback with downloading."""
         results = []
         
         try:
-            # Use specific engine or fallback
-            if engine:
-                scrape_result = await scrape_with_engine(url, engine)
-            else:
-                scrape_result = await scrape_with_fallback(url)
+            # Set up download directory
+            download_dir = self.assets_dir / "downloaded"
+            download_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Use comprehensive scraping with downloading
+            scrape_result = await scrape_website_comprehensive(url, download_dir, verbose, engine)
             
             if scrape_result.get("status") == "success":
-                images = scrape_result.get("images", [])
                 used_engine = scrape_result.get("engine", "unknown")
+                downloaded_images = scrape_result.get("downloaded_images", [])
                 
-                for i, image_url in enumerate(images):
-                    # Create basic result for scraped image
-                    results.append(ImageResult(
-                        path=image_url,
-                        source="scraped",
-                        provider=used_engine,
-                        width=0,  # Will be updated after download
-                        height=0,
-                        format="unknown",
-                        description=f"Scraped image {i+1}",
-                        match_score=None
-                    ))
+                # Create results for downloaded images
+                for i, img_data in enumerate(downloaded_images):
+                    if img_data.get("status") in ["success", "skipped"]:
+                        # Get image dimensions if possible
+                        try:
+                            from PIL import Image
+                            img_path = Path(img_data["path"])
+                            if img_path.exists():
+                                with Image.open(img_path) as img:
+                                    width, height = img.size
+                            else:
+                                width, height = 0, 0
+                        except Exception:
+                            width, height = 0, 0
+                        
+                        # Determine format from filename
+                        filename = img_data.get("filename", "")
+                        if filename.endswith(('.jpg', '.jpeg')):
+                            format_ext = "jpg"
+                        elif filename.endswith('.png'):
+                            format_ext = "png"
+                        elif filename.endswith('.gif'):
+                            format_ext = "gif"
+                        elif filename.endswith('.webp'):
+                            format_ext = "webp"
+                        else:
+                            format_ext = "unknown"
+                        
+                        results.append(ImageResult(
+                            path=img_data["path"],
+                            source="scraped",
+                            provider=used_engine,
+                            width=width,
+                            height=height,
+                            format=format_ext,
+                            description=f"Scraped image {i+1}",
+                            match_score=None
+                        ))
+                    elif img_data.get("status") == "skipped":
+                        if verbose:
+                            print(f"  ⏭️  Skipped: {img_data.get('filename', 'unknown')} ({img_data.get('reason', 'unknown reason')})")
+                
+                if verbose:
+                    print(f"✅ Scraping completed: {len(results)} images processed")
             else:
-                print(f"Website scraping failed: {scrape_result.get('error', 'Unknown error')}")
+                error_msg = scrape_result.get('error', 'Unknown error')
+                if verbose:
+                    print(f"❌ Website scraping failed: {error_msg}")
+                else:
+                    print(f"Website scraping failed: {error_msg}")
                 
         except Exception as e:
-            print(f"Website scraping failed: {e}")
+            error_msg = f"Website scraping failed: {e}"
+            if verbose:
+                print(f"❌ {error_msg}")
+            else:
+                print(error_msg)
         
         return results
     

@@ -99,15 +99,16 @@ class PurpleCrayon:
             return asyncio.run(self.generate_async(request))
         raise RuntimeError("PurpleCrayon.generate() cannot be used inside an active event loop. Use await PurpleCrayon.generate_async(...) instead.")
 
-    async def scrape_async(self, url: str, engine: Optional[str] = None) -> OperationResult:
+    async def scrape_async(self, url: str, engine: Optional[str] = None, verbose: bool = False) -> OperationResult:
         """Async entry point to scrape all images from a URL.
         
         Args:
             url: URL to scrape
             engine: Scraping engine to use ('firecrawl', 'playwright', 'beautifulsoup', or None for auto-fallback)
+            verbose: Enable verbose debugging output
         """
         try:
-            results = await self.service.scrape_website(url, engine)
+            results = await self.service.scrape_website(url, engine, verbose)
             return OperationResult(
                 success=True,
                 message=f"Scraped {len(results)} images from {url}",
@@ -121,17 +122,18 @@ class PurpleCrayon:
                 error_code="SCRAPE_ERROR"
             )
 
-    def scrape(self, url: str, engine: Optional[str] = None) -> OperationResult:
+    def scrape(self, url: str, engine: Optional[str] = None, verbose: bool = False) -> OperationResult:
         """Scrape all images from a URL.
         
         Args:
             url: URL to scrape
             engine: Scraping engine to use ('firecrawl', 'playwright', 'beautifulsoup', or None for auto-fallback)
+            verbose: Enable verbose debugging output
         """
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            return asyncio.run(self.scrape_async(url, engine))
+            return asyncio.run(self.scrape_async(url, engine, verbose))
         raise RuntimeError("PurpleCrayon.scrape() cannot be used inside an active event loop. Use await PurpleCrayon.scrape_async(...) instead.")
 
     def modify(self, image_path: str, prompt: str, **kwargs) -> OperationResult:

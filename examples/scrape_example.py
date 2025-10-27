@@ -8,14 +8,17 @@ import argparse
 from purplecrayon import PurpleCrayon
 
 
-def scrape_with_engine(crayon, url, engine=None):
+def scrape_with_engine(crayon, url, engine=None, verbose=False, override=False):
     """Scrape using a specific engine or auto-fallback."""
-    if engine:
-        print(f"🕷️ Scraping with {engine.upper()} engine from: {url}")
-        result = crayon.scrape(url, engine=engine)
+    if engine and override:
+        print(f"🎯 Override mode: Using ONLY {engine.upper()} engine from: {url}")
+        result = crayon.scrape(url, engine=engine, verbose=verbose)
+    elif engine:
+        print(f"🕷️ Scraping with {engine.upper()} engine (fallback enabled) from: {url}")
+        result = crayon.scrape(url, engine=engine, verbose=verbose)
     else:
         print(f"🕷️ Scraping with auto-fallback from: {url}")
-        result = crayon.scrape(url)
+        result = crayon.scrape(url, verbose=verbose)
     
     return result
 
@@ -25,8 +28,12 @@ def main():
     parser.add_argument("url", help="URL to scrape")
     parser.add_argument("--engine", choices=["firecrawl", "playwright", "beautifulsoup"], 
                        help="Specific scraping engine to use (default: auto-fallback)")
+    parser.add_argument("--override", action="store_true",
+                       help="Override fallback behavior - use only the specified engine")
     parser.add_argument("--assets-dir", default="./example_assets", 
                        help="Assets directory for downloads")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                       help="Enable verbose debugging output")
     
     args = parser.parse_args()
     
@@ -34,7 +41,7 @@ def main():
     crayon = PurpleCrayon(assets_dir=args.assets_dir)
     
     # Scrape with specified engine or auto-fallback
-    result = scrape_with_engine(crayon, args.url, args.engine)
+    result = scrape_with_engine(crayon, args.url, args.engine, args.verbose, args.override)
     
     if result.success:
         print(f"✅ {result.message}")
@@ -65,8 +72,8 @@ def demo_all_engines():
     print("=" * 50)
     
     for engine in engines:
-        print(f"\n--- Testing {engine.upper()} ---")
-        result = crayon.scrape(url, engine=engine)
+        print(f"\n--- Testing {engine.upper()} ONLY ---")
+        result = scrape_with_engine(crayon, url, engine, verbose=True, override=True)
         
         if result.success:
             print(f"✅ Found {len(result.images)} images")
