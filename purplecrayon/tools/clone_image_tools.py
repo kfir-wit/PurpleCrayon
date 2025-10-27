@@ -22,6 +22,7 @@ from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from ..models.image_result import ImageResult
 from ..models.asset_request import AssetRequest
 from ..utils.config import get_env
+from ..utils.file_utils import safe_save_file
 
 
 async def _try_generation_engines(
@@ -560,6 +561,8 @@ async def clone_image(
         # Step 4: Save the generated image
         if output_dir is None:
             output_dir = Path("downloads/cloned")
+        else:
+            output_dir = Path(output_dir)
         
         output_dir.mkdir(parents=True, exist_ok=True)
         
@@ -576,15 +579,19 @@ async def clone_image(
         output_path = output_dir / output_filename
         
         # Download and save the generated image
+        actual_path = None
         if generation_result["data"].get("url"):
             # Download from URL
             import httpx
             async with httpx.AsyncClient() as client:
                 response = await client.get(generation_result["data"]["url"])
                 if response.status_code == 200:
-                    with open(output_path, "wb") as f:
-                        f.write(response.content)
-                    print(f"✅ Downloaded cloned image to: {output_path}")
+                    actual_path = safe_save_file(
+                        content=response.content,
+                        target_path=output_path,
+                        prefix="cloned"
+                    )
+                    print(f"✅ Downloaded cloned image to: {actual_path}")
                 else:
                     return {
                         "success": False,
@@ -592,9 +599,12 @@ async def clone_image(
                     }
         elif generation_result["data"].get("image_data"):
             # Save from binary data
-            with open(output_path, "wb") as f:
-                f.write(generation_result["data"]["image_data"])
-            print(f"✅ Saved cloned image to: {output_path}")
+            actual_path = safe_save_file(
+                content=generation_result["data"]["image_data"],
+                target_path=output_path,
+                prefix="cloned"
+            )
+            print(f"✅ Saved cloned image to: {actual_path}")
         else:
             return {
                 "success": False,
@@ -602,7 +612,7 @@ async def clone_image(
             }
         
         # Step 5: Calculate similarity
-        clone_phash = _calculate_perceptual_hash(output_path)
+        clone_phash = _calculate_perceptual_hash(actual_path)
         similarity = _calculate_similarity(analysis["perceptual_hash"], clone_phash)
         
         # Check if similarity is within acceptable bounds
@@ -612,9 +622,9 @@ async def clone_image(
         return {
             "success": True,
             "original_path": str(image_path),
-            "clone_path": str(output_path),
+            "clone_path": str(actual_path),
             "original_filename": image_path.name,
-            "clone_filename": output_filename,
+            "clone_filename": actual_path.name,
             "original_dimensions": (original_width, original_height),
             "clone_dimensions": (target_width, target_height),
             "format": format,

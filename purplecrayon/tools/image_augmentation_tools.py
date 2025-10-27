@@ -19,6 +19,7 @@ from PIL import Image
 
 from ..core.types import OperationResult, ImageResult
 from ..utils.config import get_env
+from ..utils.file_utils import safe_save_file
 
 
 async def augment_image_with_gemini_async(
@@ -321,23 +322,25 @@ async def augment_image(
             **kwargs
         )
         
-        # Generate output filename
+        # Generate output filename and save safely
         original_name = image_path.stem
-        output_filename = f"augmented_{original_name}.{output_format}"
-        output_path = output_dir / output_filename
+        base_output_path = output_dir / f"{original_name}.{output_format}"
         
-        # Save the augmented image
-        with open(output_path, "wb") as f:
-            f.write(image_data)
-            
-        print(f"Augmented image saved to: {output_path}")
+        # Save the augmented image with unique filename
+        actual_output_path = safe_save_file(
+            content=image_data,
+            target_path=base_output_path,
+            prefix="augmented"
+        )
+        
+        print(f"Augmented image saved to: {actual_output_path}")
         
         # Update the path in the result
-        image_result.path = str(output_path)
+        image_result.path = str(actual_output_path)
         
         return OperationResult(
             success=True,
-            message=f"Successfully augmented image: {output_path}",
+            message=f"Successfully augmented image: {actual_output_path}",
             images=[image_result]
         )
         
