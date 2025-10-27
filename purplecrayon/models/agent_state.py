@@ -5,7 +5,7 @@ This module contains models for managing agent state and workflow.
 """
 
 from typing import Optional, List, Dict, Any, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from pathlib import Path
 from datetime import datetime
 from enum import Enum
@@ -26,6 +26,12 @@ class AgentMode(str, Enum):
 
 class AgentState(BaseModel):
     """State model for PurpleCrayon agent operations."""
+    
+    model_config = ConfigDict(
+        use_enum_values=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
     
     # Basic state
     mode: AgentMode = Field(..., description="Current agent mode")
@@ -149,8 +155,3 @@ class AgentState(BaseModel):
         """Clear all warning messages."""
         self.warnings.clear()
     
-    class Config:
-        """Pydantic configuration."""
-        use_enum_values = True
-        validate_assignment = True
-        extra = "forbid"

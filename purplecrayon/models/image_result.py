@@ -5,7 +5,7 @@ This module contains models for image generation and processing results.
 """
 
 from typing import List, Optional, Dict, Any, Union
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from pathlib import Path
 from datetime import datetime
 from enum import Enum
@@ -67,16 +67,16 @@ class ImageResult(BaseModel):
     error_message: Optional[str] = Field(default=None, description="Error message if failed")
     retry_count: int = Field(default=0, ge=0, description="Number of retry attempts")
     
-    @validator('format')
-    def validate_format(cls, v):
+    @field_validator('format')
+    def validate_format(cls, v: str) -> str:
         """Validate image format."""
         allowed_formats = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tiff']
         if v.lower() not in allowed_formats:
             raise ValueError(f"Format must be one of: {', '.join(allowed_formats)}")
         return v.lower()
     
-    @validator('path')
-    def validate_path(cls, v):
+    @field_validator('path')
+    def validate_path(cls, v: Path) -> Path:
         """Validate that path is absolute."""
         if not v.is_absolute():
             raise ValueError("Path must be absolute")
@@ -110,11 +110,11 @@ class ImageResult(BaseModel):
             "similarity_score": self.similarity_score
         }
     
-    class Config:
-        """Pydantic configuration."""
-        use_enum_values = True
-        validate_assignment = True
-        extra = "forbid"
+    model_config = ConfigDict(
+        use_enum_values=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
 
 
 class OperationResult(BaseModel):
@@ -184,8 +184,8 @@ class OperationResult(BaseModel):
             "warnings": self.warnings
         }
     
-    class Config:
-        """Pydantic configuration."""
-        use_enum_values = True
-        validate_assignment = True
-        extra = "forbid"
+    model_config = ConfigDict(
+        use_enum_values=True,
+        validate_assignment=True,
+        extra="forbid",
+    )

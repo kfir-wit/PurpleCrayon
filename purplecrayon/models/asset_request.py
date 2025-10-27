@@ -5,7 +5,7 @@ This module contains models for requesting and processing assets.
 """
 
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from pathlib import Path
 
 
@@ -35,24 +35,24 @@ class AssetRequest(BaseModel):
     output_dir: Optional[Path] = Field(default=None, description="Output directory for generated assets")
     catalog_entry: bool = Field(default=True, description="Whether to add to asset catalog")
     
-    @validator('format')
-    def validate_format(cls, v):
+    @field_validator('format')
+    def validate_format(cls, v: str) -> str:
         """Validate image format."""
         allowed_formats = ['png', 'jpg', 'jpeg', 'webp', 'gif']
         if v.lower() not in allowed_formats:
             raise ValueError(f"Format must be one of: {', '.join(allowed_formats)}")
         return v.lower()
     
-    @validator('quality')
-    def validate_quality(cls, v):
+    @field_validator('quality')
+    def validate_quality(cls, v: str) -> str:
         """Validate quality setting."""
         allowed_qualities = ['low', 'medium', 'high']
         if v.lower() not in allowed_qualities:
             raise ValueError(f"Quality must be one of: {', '.join(allowed_qualities)}")
         return v.lower()
     
-    @validator('providers')
-    def validate_providers(cls, v):
+    @field_validator('providers')
+    def validate_providers(cls, v: List[str]) -> List[str]:
         """Validate AI providers."""
         allowed_providers = ['gemini', 'dalle', 'imagen', 'midjourney']
         for provider in v:
@@ -60,11 +60,11 @@ class AssetRequest(BaseModel):
                 raise ValueError(f"Provider '{provider}' not supported. Allowed: {', '.join(allowed_providers)}")
         return [p.lower() for p in v]
     
-    class Config:
-        """Pydantic configuration."""
-        use_enum_values = True
-        validate_assignment = True
-        extra = "forbid"
+    model_config = ConfigDict(
+        use_enum_values=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
 
 
 class ImageModificationRequest(AssetRequest):
@@ -78,8 +78,8 @@ class ImageModificationRequest(AssetRequest):
     preserve_aspect_ratio: bool = Field(default=True, description="Whether to preserve original aspect ratio")
     modification_strength: float = Field(default=0.8, ge=0.0, le=1.0, description="Strength of modifications")
     
-    @validator('input_image')
-    def validate_input_image(cls, v):
+    @field_validator('input_image')
+    def validate_input_image(cls, v: Path) -> Path:
         """Validate that input image exists and is readable."""
         if not v.exists():
             raise ValueError(f"Input image does not exist: {v}")
@@ -99,8 +99,8 @@ class ImageCloneRequest(AssetRequest):
     include_metadata: bool = Field(default=True, description="Whether to include original metadata")
     safety_filters: bool = Field(default=True, description="Whether to apply safety filters")
     
-    @validator('source_image')
-    def validate_source_image(cls, v):
+    @field_validator('source_image')
+    def validate_source_image(cls, v: Path) -> Path:
         """Validate that source image exists and is readable."""
         if not v.exists():
             raise ValueError(f"Source image does not exist: {v}")
