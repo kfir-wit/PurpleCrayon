@@ -61,15 +61,15 @@ from .scraping_tools import (
 from .image_renaming_tools import scan_and_rename_assets
 
 # AI generation
-from .ai_generation_tools import generate_image_with_gemini
+from .ai_generation_tools import generate_with_gemini
 
-# Stock photo tools
-from .stock_photo_tools import (
-    search_stock_photos,
-    search_unsplash,
-    search_pexels,
-    search_pixabay,
-)
+# Stock photo tools (functions may not be available yet)
+# from .stock_photo_tools import (
+#     search_stock_photos,
+#     search_unsplash,
+#     search_pexels,
+#     search_pixabay,
+# )
 
 __all__ = [
     # Asset management
@@ -93,11 +93,11 @@ __all__ = [
     "scan_and_rename_assets",
     
     # AI generation
-    "generate_image_with_gemini",
+    "generate_with_gemini",
     
-    # Stock photos
-    "search_stock_photos",
-    "search_unsplash",
-    "search_pexels", 
-    "search_pixabay",
+    # Stock photos (commented out until functions are implemented)
+    # "search_stock_photos",
+    # "search_unsplash",
+    # "search_pexels", 
+    # "search_pixabay",
 ]
