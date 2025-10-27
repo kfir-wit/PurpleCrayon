@@ -21,6 +21,192 @@ from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 from ..models.image_result import ImageResult
 from ..models.asset_request import AssetRequest
+from ..utils.config import get_env
+
+
+async def _try_generation_engines(
+    prompt: str,
+    target_width: int,
+    target_height: int,
+    source_image_path: Optional[Path] = None
+) -> Dict[str, Any]:
+    """
+    Try multiple AI generation engines with fallback.
+    
+    Args:
+        prompt: Generation prompt
+        target_width: Target width
+        target_height: Target height
+        source_image_path: Optional source image for image-to-image generation
+        
+    Returns:
+        Generation result with success status and data
+    """
+    engines = [
+        ("replicate", _try_imagen_generation),  # Try Replicate first for image-to-image
+        ("gemini", _try_gemini_generation),
+    ]
+    
+    last_error = None
+    
+    for engine_name, engine_func in engines:
+        try:
+            print(f"🎨 Trying {engine_name} generation engine...")
+            result = await engine_func(prompt, target_width, target_height, source_image_path)
+            
+            if result.get("success"):
+                print(f"✅ {engine_name} generation successful")
+                return result
+            else:
+                print(f"⚠️ {engine_name} failed: {result.get('error', 'Unknown error')}")
+                last_error = result.get('error', f'{engine_name} failed')
+                
+        except Exception as e:
+            print(f"❌ {engine_name} error: {str(e)}")
+            last_error = str(e)
+            continue
+    
+    return {
+        "success": False,
+        "error": f"All generation engines failed. Last error: {last_error}"
+    }
+
+
+async def _try_gemini_generation(prompt: str, width: int, height: int, source_image_path: Optional[Path] = None) -> Dict[str, Any]:
+    """Try Gemini generation with optional source image."""
+    try:
+        from .ai_generation_tools import generate_with_gemini_async, generate_with_gemini_image_to_image_async
+        
+        # Convert dimensions to valid Gemini aspect ratio
+        def get_valid_aspect_ratio(w, h):
+            ratio = w / h
+            if abs(ratio - 1.0) < 0.1:
+                return "1:1"
+            elif abs(ratio - 1.5) < 0.1:
+                return "3:2"
+            elif abs(ratio - 0.67) < 0.1:
+                return "2:3"
+            elif abs(ratio - 1.33) < 0.1:
+                return "4:3"
+            elif abs(ratio - 0.75) < 0.1:
+                return "3:4"
+            elif abs(ratio - 1.78) < 0.1:
+                return "16:9"
+            elif abs(ratio - 0.56) < 0.1:
+                return "9:16"
+            else:
+                return "1:1"  # Default fallback
+        
+        aspect_ratio = get_valid_aspect_ratio(width, height)
+        
+        # Use image-to-image generation if source image is provided
+        if source_image_path and source_image_path.exists():
+            print(f"🎨 Using Gemini image-to-image generation with source: {source_image_path}")
+            result = await generate_with_gemini_image_to_image_async(
+                prompt, 
+                str(source_image_path), 
+                aspect_ratio=aspect_ratio
+            )
+        else:
+            print(f"🎨 Using Gemini text-to-image generation")
+            result = await generate_with_gemini_async(prompt, aspect_ratio=aspect_ratio)
+        
+        if result.get("status") == "succeeded":
+            return {
+                "success": True,
+                "engine": "gemini",
+                "data": result
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"Gemini generation failed: {result.get('reason', 'Unknown error')}"
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Gemini error: {str(e)}"
+        }
+
+
+async def _try_imagen_generation(prompt: str, width: int, height: int, source_image_path: Optional[Path] = None) -> Dict[str, Any]:
+    """Try Imagen/Replicate generation with optional source image."""
+    try:
+        import replicate
+        from ..utils.config import get_env
+        
+        api_token = get_env("REPLICATE_API_TOKEN")
+        if not api_token:
+            return {
+                "success": False,
+                "error": "REPLICATE_API_TOKEN not set"
+            }
+        
+        client = replicate.Client(api_token=api_token)
+        
+        # Use image-to-image generation if source image is provided
+        if source_image_path and source_image_path.exists():
+            print(f"🎨 Using Replicate image-to-image generation with source: {source_image_path}")
+            
+            # Upload the source image to Replicate
+            with open(source_image_path, "rb") as f:
+                uploaded_image = client.files.create(f)
+            
+            # Get the URL from the uploaded file
+            image_url = uploaded_image.url if hasattr(uploaded_image, 'url') else str(uploaded_image)
+            
+            result = client.run(
+                "stability-ai/stable-diffusion:27b93a2413e7f36cd83da926f3656280b2931564ff050bf9575f1fdf9bcd747e",
+                input={
+                    "prompt": prompt,
+                    "init_image": image_url,
+                    "width": width,
+                    "height": height,
+                    "num_inference_steps": 20,
+                    "guidance_scale": 7.5,
+                    "strength": 0.8  # How much to modify the original image
+                }
+            )
+        else:
+            print("🎨 Using Replicate text-to-image generation")
+            result = client.run(
+                "stability-ai/stable-diffusion:27b93a2413e7f36cd83da926f3656280b2931564ff050bf9575f1fdf9bcd747e",
+                input={
+                    "prompt": prompt,
+                    "width": width,
+                    "height": height,
+                    "num_inference_steps": 20,
+                    "guidance_scale": 7.5
+                }
+            )
+        
+        # Collect URLs from result
+        if isinstance(result, str):
+            urls = [result]
+        else:
+            urls = list(result)
+        
+        if urls:
+            return {
+                "success": True,
+                "engine": "replicate",
+                "data": {
+                    "status": "succeeded",
+                    "url": urls[-1],
+                    "all": urls
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "error": "No image generated"
+            }
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Replicate error: {str(e)}"
+        }
 
 
 # Vision analysis prompt for detailed image description
@@ -107,7 +293,7 @@ async def describe_image_for_regeneration(
     
     try:
         # Initialize Gemini
-        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+        genai.configure(api_key=get_env("GEMINI_API_KEY"))
         model = genai.GenerativeModel('gemini-2.0-flash-exp')
         
         # Convert image to base64
@@ -132,14 +318,42 @@ async def describe_image_for_regeneration(
             })
             
             # Check if response has content
-            if not response or not hasattr(response, 'text') or not response.text:
+            if not response:
                 return {
                     "success": False,
                     "error": "Failed to analyze image - no response from API"
                 }
             
-            # Extract the generated description
-            description = response.text.strip()
+            # Check for candidates
+            if not hasattr(response, 'candidates') or not response.candidates:
+                return {
+                    "success": False,
+                    "error": "Failed to analyze image - no candidates in response"
+                }
+            
+            # Get the first candidate
+            candidate = response.candidates[0]
+            if not hasattr(candidate, 'content') or not candidate.content:
+                return {
+                    "success": False,
+                    "error": "Failed to analyze image - no content in candidate"
+                }
+            
+            # Extract text from content parts
+            description_parts = []
+            for part in candidate.content.parts:
+                if hasattr(part, 'text') and part.text:
+                    description_parts.append(part.text)
+            
+            if not description_parts:
+                return {
+                    "success": False,
+                    "error": "Failed to analyze image - no text content found"
+                }
+            
+            # Join all text parts
+            description = " ".join(description_parts).strip()
+            
         except Exception as e:
             return {
                 "success": False,
@@ -207,15 +421,30 @@ async def clone_image(
         }
     
     try:
-        # Step 1: Analyze the source image
+        # Step 1: Analyze the source image for better cloning
         print(f"🔍 Analyzing source image: {image_path.name}")
+        
+        # Try vision analysis first, fallback to filename-based description
         analysis = await describe_image_for_regeneration(image_path)
         
-        if not analysis["success"]:
-            return {
-                "success": False,
-                "error": f"Failed to analyze source image: {analysis['error']}"
+        if not analysis.get("success"):
+            print(f"⚠️ Vision analysis failed, using filename-based description: {analysis.get('error')}")
+            # Fallback to filename-based description
+            with Image.open(image_path) as img:
+                original_width, original_height = img.size
+                original_format = img.format.lower() if img.format else "jpeg"
+            
+            filename = image_path.stem
+            analysis = {
+                "success": True,
+                "description": f"A high-quality {filename.replace('_', ' ')} image, professional photography style, detailed and clear, similar composition and subject matter",
+                "original_dimensions": (original_width, original_height),
+                "original_format": original_format,
+                "perceptual_hash": "",
+                "extra_meta": {}
             }
+        else:
+            print(f"✅ Vision analysis successful: {analysis['description'][:100]}...")
         
         # Step 2: Prepare generation parameters
         original_width, original_height = analysis["original_dimensions"]
@@ -254,7 +483,7 @@ async def clone_image(
         print(f"🎨 Generating clone with prompt: {base_prompt[:100]}...")
         
         # Step 3: Generate the cloned image
-        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+        genai.configure(api_key=get_env("GEMINI_API_KEY"))
         model = genai.GenerativeModel('gemini-2.0-flash-exp')
         
         try:
@@ -276,13 +505,12 @@ async def clone_image(
                 "error": f"API call failed: {str(e)}"
             }
         
-        # For now, we'll use the text description to generate via the existing AI generation tools
-        # In a full implementation, this would call the actual image generation API
-        from .ai_generation_tools import generate_with_gemini
-        
-        generation_result = generate_with_gemini(
+        # Try multiple AI generation engines with fallback
+        generation_result = await _try_generation_engines(
             prompt=base_prompt,
-            aspect_ratio=f"{target_width}:{target_height}"
+            target_width=target_width,
+            target_height=target_height,
+            source_image_path=image_path
         )
         
         if not generation_result.get("success"):
@@ -309,12 +537,34 @@ async def clone_image(
         
         output_path = output_dir / output_filename
         
-        # For now, we'll create a placeholder since we don't have actual image generation
-        # In a real implementation, this would save the generated image
-        print(f"📁 Would save cloned image to: {output_path}")
+        # Download and save the generated image
+        if generation_result["data"].get("url"):
+            # Download from URL
+            import httpx
+            async with httpx.AsyncClient() as client:
+                response = await client.get(generation_result["data"]["url"])
+                if response.status_code == 200:
+                    with open(output_path, "wb") as f:
+                        f.write(response.content)
+                    print(f"✅ Downloaded cloned image to: {output_path}")
+                else:
+                    return {
+                        "success": False,
+                        "error": f"Failed to download generated image: HTTP {response.status_code}"
+                    }
+        elif generation_result["data"].get("image_data"):
+            # Save from binary data
+            with open(output_path, "wb") as f:
+                f.write(generation_result["data"]["image_data"])
+            print(f"✅ Saved cloned image to: {output_path}")
+        else:
+            return {
+                "success": False,
+                "error": "No image data found in generation result"
+            }
         
-        # Step 5: Calculate similarity (placeholder)
-        clone_phash = _calculate_perceptual_hash(image_path)  # Placeholder
+        # Step 5: Calculate similarity
+        clone_phash = _calculate_perceptual_hash(output_path)
         similarity = _calculate_similarity(analysis["perceptual_hash"], clone_phash)
         
         # Check if similarity is within acceptable bounds
