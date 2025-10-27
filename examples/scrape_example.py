@@ -8,7 +8,7 @@ import argparse
 from purplecrayon import PurpleCrayon
 
 
-def scrape_with_engine(crayon, url, engine=None, verbose=False, override=False):
+def scrape_with_engine(crayon, url, engine=None, verbose=False, override=False, cleanup=True, keep_junk=False):
     """Scrape using a specific engine or auto-fallback."""
     if engine and override:
         print(f"🎯 Override mode: Using ONLY {engine.upper()} engine from: {url}")
@@ -19,6 +19,24 @@ def scrape_with_engine(crayon, url, engine=None, verbose=False, override=False):
     else:
         print(f"🕷️ Scraping with auto-fallback from: {url}")
         result = crayon.scrape(url, verbose=verbose)
+    
+    # Clean up scraped files if requested and scraping was successful
+    if cleanup and result.success and result.images:
+        print(f"\n🧹 Cleaning up scraped files...")
+        cleanup_result = crayon.cleanup_assets(remove_junk=not keep_junk)
+        
+        if cleanup_result["success"]:
+            cleanup_stats = cleanup_result["cleanup_stats"]
+            print(f"✅ Cleanup completed:")
+            print(f"  📸 Valid images: {cleanup_stats['valid']}")
+            if cleanup_stats['corrupted'] > 0:
+                print(f"  ❌ Corrupted files removed: {cleanup_stats['corrupted']}")
+            if not keep_junk and cleanup_stats['junk'] > 0:
+                print(f"  🗑️ Junk files removed: {cleanup_stats['junk']}")
+            if cleanup_stats['corrupted'] > 0 or (not keep_junk and cleanup_stats['junk'] > 0):
+                print(f"  📝 Files corrected/renamed: {cleanup_stats.get('total_removed', 0)}")
+        else:
+            print(f"⚠️ Cleanup failed: {cleanup_result['error']}")
     
     return result
 
@@ -34,6 +52,10 @@ def main():
                        help="Assets directory for downloads")
     parser.add_argument("--verbose", "-v", action="store_true",
                        help="Enable verbose debugging output")
+    parser.add_argument("--no-cleanup", action="store_true",
+                       help="Skip automatic cleanup after scraping")
+    parser.add_argument("--keep-junk", action="store_true",
+                       help="Keep junk files during cleanup (only remove corrupted files)")
     
     args = parser.parse_args()
     
@@ -41,7 +63,8 @@ def main():
     crayon = PurpleCrayon(assets_dir=args.assets_dir)
     
     # Scrape with specified engine or auto-fallback
-    result = scrape_with_engine(crayon, args.url, args.engine, args.verbose, args.override)
+    result = scrape_with_engine(crayon, args.url, args.engine, args.verbose, args.override, 
+                               cleanup=not args.no_cleanup, keep_junk=args.keep_junk)
     
     if result.success:
         print(f"✅ {result.message}")
@@ -73,7 +96,7 @@ def demo_all_engines():
     
     for engine in engines:
         print(f"\n--- Testing {engine.upper()} ONLY ---")
-        result = scrape_with_engine(crayon, url, engine, verbose=True, override=True)
+        result = scrape_with_engine(crayon, url, engine, verbose=True, override=True, cleanup=True)
         
         if result.success:
             print(f"✅ Found {len(result.images)} images")
@@ -91,6 +114,8 @@ if __name__ == "__main__":
         print("Usage examples:")
         print("  python scrape_example.py https://example.com")
         print("  python scrape_example.py https://example.com --engine playwright")
+        print("  python scrape_example.py https://example.com --no-cleanup")
+        print("  python scrape_example.py https://example.com --keep-junk")
         print("  python scrape_example.py --help")
         print()
         print("Running demo with all engines...")
