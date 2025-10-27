@@ -117,21 +117,34 @@ async def describe_image_for_regeneration(
         prompt = VISION_ANALYSIS_PROMPT
         
         # Generate description
-        response = model.generate_content([
-            prompt,
-            {
-                "mime_type": "image/jpeg",
-                "data": image_base64
+        try:
+            response = model.generate_content([
+                prompt,
+                {
+                    "mime_type": "image/jpeg",
+                    "data": image_base64
+                }
+            ], safety_settings={
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            })
+            
+            # Check if response has content
+            if not response or not hasattr(response, 'text') or not response.text:
+                return {
+                    "success": False,
+                    "error": "Failed to analyze image - no response from API"
+                }
+            
+            # Extract the generated description
+            description = response.text.strip()
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Image analysis failed: {str(e)}"
             }
-        ], safety_settings={
-            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        })
-        
-        # Extract the generated description
-        description = response.text.strip()
         
         # Calculate perceptual hash for similarity checking
         phash = _calculate_perceptual_hash(image_path)
@@ -244,16 +257,23 @@ async def clone_image(
         genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
         model = genai.GenerativeModel('gemini-2.0-flash-exp')
         
-        response = model.generate_content([
-            f"Generate a new image based on this description: {base_prompt}",
-            "Create a unique interpretation that captures the essence but is sufficiently different from the original.",
-            "Avoid literal copying of specific details, logos, or copyrighted elements."
-        ])
-        
-        if not response.text:
+        try:
+            response = model.generate_content([
+                f"Generate a new image based on this description: {base_prompt}",
+                "Create a unique interpretation that captures the essence but is sufficiently different from the original.",
+                "Avoid literal copying of specific details, logos, or copyrighted elements."
+            ])
+            
+            # Check if response has content
+            if not response or not hasattr(response, 'text') or not response.text:
+                return {
+                    "success": False,
+                    "error": "Failed to generate image description - no response from API"
+                }
+        except Exception as e:
             return {
                 "success": False,
-                "error": "Failed to generate image description"
+                "error": f"API call failed: {str(e)}"
             }
         
         # For now, we'll use the text description to generate via the existing AI generation tools
