@@ -23,7 +23,7 @@ class AssetCatalog:
                 "stats": {
                     "total_assets": 0,
                     "by_source": {"ai": 0, "stock": 0, "proprietary": 0, "downloaded": 0},
-                        "by_format": {"jpg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0},
+                        "by_format": {"jpg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0, "svg": 0, "bmp": 0, "tiff": 0},
                     "by_aspect_ratio": {"square": 0, "landscape": 0, "portrait": 0}
                 },
                 "assets": []
@@ -37,7 +37,7 @@ class AssetCatalog:
                     data["stats"] = {
                         "total_assets": 0,
                         "by_source": {"ai": 0, "stock": 0, "proprietary": 0, "downloaded": 0},
-                        "by_format": {"jpg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0},
+                        "by_format": {"jpg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0, "svg": 0, "bmp": 0, "tiff": 0},
                         "by_aspect_ratio": {"square": 0, "landscape": 0, "portrait": 0}
                     }
                 if "assets" not in data:
@@ -49,7 +49,7 @@ class AssetCatalog:
                 "stats": {
                     "total_assets": 0,
                     "by_source": {"ai": 0, "stock": 0, "proprietary": 0, "downloaded": 0},
-                        "by_format": {"jpg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0},
+                        "by_format": {"jpg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0, "svg": 0, "bmp": 0, "tiff": 0},
                     "by_aspect_ratio": {"square": 0, "landscape": 0, "portrait": 0}
                 },
                 "assets": []
@@ -301,7 +301,7 @@ class AssetCatalog:
         stats = {
             "total_assets": len(assets),
             "by_source": {"ai": 0, "stock": 0, "proprietary": 0, "downloaded": 0},
-                        "by_format": {"jpg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0},
+                        "by_format": {"jpg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0, "svg": 0, "bmp": 0, "tiff": 0},
             "by_aspect_ratio": {"square": 0, "landscape": 0, "portrait": 0}
         }
         
@@ -340,7 +340,7 @@ class AssetCatalog:
         existing_paths = {asset["path"]: asset for asset in self.catalog["assets"]}
         
         # Scan all image files
-        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.ico'}
+        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.ico', '.svg'}
         
         for file_path in assets_dir.rglob('*'):
             if file_path.is_file() and file_path.suffix.lower() in image_extensions:
@@ -379,7 +379,7 @@ class AssetCatalog:
         current_assets = {asset["path"]: asset for asset in self.catalog["assets"]}
         
         # Scan all image files in assets directory
-        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.ico'}
+        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.ico', '.svg'}
         found_files = {}
         
         added = 0
@@ -441,7 +441,7 @@ class AssetCatalog:
         self._update_stats()
         
         # Scan all image files and add them
-        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.ico'}
+        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.ico', '.svg'}
         added = 0
         errors = 0
         
@@ -457,6 +457,42 @@ class AssetCatalog:
         
         print(f"📊 Catalog rebuild complete: {added} assets added, {errors} errors")
         return {"added": added, "errors": errors}
+    
+    def cleanup_and_update_catalog(self, assets_dir: Path, remove_junk: bool = True) -> Dict[str, int]:
+        """Clean up corrupted/junk images and update catalog."""
+        from .image_validation_tools import cleanup_corrupted_images
+        
+        print("🧹 Cleaning up corrupted and junk images...")
+        print("=" * 50)
+        
+        # Clean up the assets directory
+        cleanup_stats = cleanup_corrupted_images(str(assets_dir), remove_junk)
+        
+        print("=" * 50)
+        print("📊 Cleanup Results:")
+        print(f"  ✅ Valid images: {cleanup_stats['valid']}")
+        print(f"  ❌ Corrupted images removed: {cleanup_stats['corrupted']}")
+        if remove_junk:
+            print(f"  🗑️ Junk files removed: {cleanup_stats['junk']}")
+        print(f"  ⚠️ Errors: {cleanup_stats['errors']}")
+        
+        # Now update the catalog
+        print("\n📊 Updating catalog after cleanup...")
+        catalog_stats = self.update_catalog_from_assets(assets_dir)
+        
+        # Combine stats
+        total_removed = cleanup_stats['corrupted'] + cleanup_stats.get('junk', 0)
+        return {
+            "valid": cleanup_stats['valid'],
+            "corrupted": cleanup_stats['corrupted'],
+            "junk": cleanup_stats.get('junk', 0),
+            "cleanup_errors": cleanup_stats['errors'],
+            "catalog_added": catalog_stats['added'],
+            "catalog_updated": catalog_stats['updated'],
+            "catalog_removed": catalog_stats['removed'],
+            "catalog_errors": catalog_stats['errors'],
+            "total_removed": total_removed
+        }
 
 
 def scan_assets_directory(assets_dir: Path = None) -> Dict[str, int]:

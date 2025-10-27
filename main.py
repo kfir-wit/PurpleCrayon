@@ -11,10 +11,45 @@ def main() -> None:
     parser.add_argument("--mode", default="full", choices=["full", "search", "generate", "process", "benchmark", "scrape"], help="Run mode")
     parser.add_argument("--url", help="URL to scrape (required for scrape mode)")
     parser.add_argument("--sort-catalog", action="store_true", help="Sort and update catalog in assets/ directory")
+    parser.add_argument("--cleanup", action="store_true", help="Clean up corrupted and junk images")
+    parser.add_argument("--keep-junk", action="store_true", help="Keep junk files when cleaning (only remove corrupted)")
     args = parser.parse_args()
     
     # Initialize package
     crayon = PurpleCrayon(assets_dir="./assets")
+    
+    # Handle cleanup mode
+    if args.cleanup:
+        print("🧹 Cleaning up corrupted and junk images...")
+        print("=" * 50)
+        
+        result = crayon.cleanup_assets(remove_junk=not args.keep_junk)
+        
+        if result["success"]:
+            cleanup_stats = result['cleanup_stats']
+            print(f"\n📊 Cleanup Results:")
+            print(f"  ✅ Valid images: {cleanup_stats['valid']}")
+            print(f"  ❌ Corrupted images removed: {cleanup_stats['corrupted']}")
+            if not args.keep_junk:
+                print(f"  🗑️ Junk files removed: {cleanup_stats['junk']}")
+            print(f"  ⚠️ Cleanup errors: {cleanup_stats['cleanup_errors']}")
+            
+            print(f"\n📊 Catalog Update Results:")
+            print(f"  ➕ Added: {cleanup_stats['catalog_added']}")
+            print(f"  🔄 Updated: {cleanup_stats['catalog_updated']}")
+            print(f"  🗑️ Removed: {cleanup_stats['catalog_removed']}")
+            print(f"  ⚠️ Catalog errors: {cleanup_stats['catalog_errors']}")
+            
+            # Show final stats
+            final_stats = result['final_stats']
+            print(f"\n📈 Final Catalog Stats:")
+            print(f"  Total assets: {final_stats.get('total_assets', 0)}")
+            print(f"  By source: {final_stats.get('by_source', {})}")
+            print(f"  By format: {final_stats.get('by_format', {})}")
+            print(f"  By aspect ratio: {final_stats.get('by_aspect_ratio', {})}")
+        else:
+            print(f"❌ Cleanup failed: {result['error']}")
+        return
     
     # Handle sort-catalog mode
     if args.sort_catalog:

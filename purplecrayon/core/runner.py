@@ -166,6 +166,23 @@ class PurpleCrayon:
                 "error": str(e)
             }
     
+    def cleanup_assets(self, remove_junk: bool = True) -> Dict[str, Any]:
+        """Clean up corrupted and junk images, then update catalog."""
+        try:
+            # Clean up and update catalog
+            cleanup_stats = self.catalog.cleanup_and_update_catalog(self.assets_dir, remove_junk)
+            
+            return {
+                "success": True,
+                "cleanup_stats": cleanup_stats,
+                "final_stats": self.catalog.get_stats()
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
     async def _source_async(self, request: AssetRequest) -> List[ImageResult]:
         """Async implementation of source method."""
         results = []
