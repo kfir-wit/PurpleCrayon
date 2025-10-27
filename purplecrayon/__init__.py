@@ -3,6 +3,7 @@
 This package provides comprehensive tools for:
 - Web scraping images from websites
 - AI-powered image generation and modification
+- Image cloning for royalty-free alternatives
 - Asset catalog management and organization
 - Image validation and cleanup
 - Stock photo integration
@@ -19,6 +20,8 @@ Key Functions:
     cleanup_corrupted_images: Image validation and cleanup
     validate_image_file: Single image validation
     AssetCatalog: Catalog management system
+    clone_image: Clone images for royalty-free alternatives
+    clone_images_from_directory: Batch image cloning
 
 Example Usage:
     from purplecrayon import PurpleCrayon, AssetRequest
@@ -28,6 +31,14 @@ Example Usage:
     
     # Scrape images from a website
     result = crayon.scrape("https://example.com", verbose=True)
+    
+    # Clone an image for royalty-free alternative
+    clone_result = await crayon.clone_async(
+        source="./assets/downloaded/image.jpg",
+        width=1024,
+        height=1024,
+        style="photorealistic"
+    )
     
     # Clean up and organize assets
     cleanup_result = crayon.cleanup_assets(remove_junk=True)

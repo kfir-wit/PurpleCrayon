@@ -1,6 +1,6 @@
 # PurpleCrayon - AI Graphics Agent
 
-Runs a LangGraph-based agent that searches local assets, stock sites, scrapes the web, and generates images using Google Gemini (Nano Banana) and Imagen (via Replicate). It can convert/resize images while preserving originals and maintains a local asset catalog.
+Runs a LangGraph-based agent that searches local assets, stock sites, scrapes the web, generates images using Google Gemini (Nano Banana) and Imagen (via Replicate), and clones images for royalty-free alternatives. It can convert/resize images while preserving originals and maintains a local asset catalog.
 
 ## Quickstart
 
@@ -41,6 +41,16 @@ uv run python -m main --mode generate
 # Scrape mode - download all images from a URL
 uv run python -m main --mode scrape --url "https://example.com/gallery"
 
+# Clone mode - create royalty-free alternatives to existing images
+uv run python -m main --mode clone --source "./assets/downloaded/image.jpg"
+
+# Clone with custom parameters
+uv run python -m main --mode clone \
+  --source "./assets/downloaded/" \
+  --width 1920 --height 1080 \
+  --format png --style photorealistic \
+  --similarity-threshold 0.7 --max-images 5
+
 # Sort and update catalog in assets/ directory
 uv run python -m main --sort-catalog
 
@@ -66,6 +76,12 @@ uv run python examples/fetch_example.py
 
 # End-to-end sourcing workflow
 uv run python examples/source_example.py
+
+# Clone images for royalty-free alternatives
+uv run python examples/clone_example.py
+
+# Simple clone using AssetRequest approach
+uv run python examples/simple_clone_assetrequest_example.py
 ```
 
 Each script creates an `example_assets/` workspace so it does not interfere with the curated `assets/` directory. Scraping demos are also available:
@@ -98,8 +114,18 @@ pip install purple-crayon
 from purplecrayon import PurpleCrayon, AssetRequest
 
 crayon = PurpleCrayon(assets_dir="./assets")
+
+# Generate AI images
 request = AssetRequest(description="hero background", width=1920, height=1080)
 result = crayon.generate(request)
+
+# Clone images for royalty-free alternatives
+clone_result = await crayon.clone_async(
+    source="./assets/downloaded/image.jpg",
+    width=1024,
+    height=1024,
+    style="photorealistic"
+)
 ```
 
 - Output locations when installed:
@@ -124,8 +150,9 @@ The agent creates organized folders for easy selection:
 - `downloads/ai/` - AI-generated images from Gemini, Imagen
 - `downloads/downloaded/` - Images scraped from URLs (scrape mode)
 - `downloads/final/` - Processed images ready for use (resized to your specs)
+- `assets/cloned/` - Royalty-free alternatives created from existing images (clone mode)
 
-This lets you compare stock photos vs AI-generated options and choose your favorite!
+This lets you compare stock photos vs AI-generated options vs cloned alternatives and choose your favorite!
 
 **Manual Curation**: Files are saved to `downloads/` subdirectories. You manually move files you like to `assets/` folder. Downloads are cleared between runs.
 
@@ -138,6 +165,7 @@ assets/
 ├── catalog.yaml     # YAML catalog with metadata
 ├── stock/          # Your curated stock photos
 ├── ai/             # Your curated AI-generated images  
+├── cloned/         # Your curated royalty-free alternatives
 ├── proprietary/    # Customer-provided images
 └── downloaded/     # Your curated scraped images
 ```
@@ -156,6 +184,44 @@ Use `--mode scrape --url "URL"` to download all images from a website:
 - **Output Location**: All images saved to `downloads/downloaded/`
 - **No Structure Preservation**: Images are flattened into a single folder
 - **Example**: `uv run python -m main --mode scrape --url "https://example.com/gallery"`
+
+## Clone Mode
+
+Use `--mode clone` to create royalty-free alternatives to existing images:
+- **AI Vision Analysis**: Uses Gemini Vision API to analyze source images and generate detailed descriptions
+- **Style Detection**: Automatically detects and inherits the original image's style (photorealistic, artistic, watercolor, etc.)
+- **AI Generation**: Creates new images using Gemini 2.5 Flash Image or Replicate Stable Diffusion
+- **Similarity Checking**: Ensures cloned images are sufficiently different from originals using perceptual hashing
+- **Batch Processing**: Clone multiple images from a directory
+- **Output Location**: Saves cloned images to `assets/cloned/` directory
+- **Catalog Integration**: Cloned files are categorized as "ai" source with "ai_clone" provider
+
+### Clone Parameters:
+- `--source`: Path to source image file or directory (required)
+- `--width`: Desired width for cloned images
+- `--height`: Desired height for cloned images  
+- `--format`: Output format (png, jpg, webp, etc.)
+- `--style`: Style guidance (photorealistic, artistic, watercolor, etc.)
+- `--guidance`: Additional guidance for image generation
+- `--similarity-threshold`: Maximum similarity threshold (0.0-1.0, default 0.7)
+- `--max-images`: Maximum number of images to process (for directory input)
+
+### Examples:
+```bash
+# Clone single image
+uv run python -m main --mode clone --source "./assets/downloaded/image.jpg"
+
+# Clone with custom dimensions and style
+uv run python -m main --mode clone \
+  --source "./assets/downloaded/image.jpg" \
+  --width 1920 --height 1080 \
+  --format png --style photorealistic
+
+# Batch clone directory with similarity control
+uv run python -m main --mode clone \
+  --source "./assets/downloaded/" \
+  --similarity-threshold 0.6 --max-images 10
+```
 
 ## Sort Catalog Mode
 
@@ -193,3 +259,9 @@ The agent now uses intelligent image selection:
 - **Downloads cleared** between runs - no accumulation of old files
 - **Manual curation** - Move files you like to your `assets/` folder
 - **Proper naming** - All images automatically renamed with dimensions and content description
+
+## Documentation
+
+- **Clone API Documentation**: See [docs/CLONE_API.md](docs/CLONE_API.md) for comprehensive clone functionality documentation
+- **API Reference**: All functions and classes are documented in the package `__init__.py`
+- **Examples**: Check the `examples/` directory for working code samples
