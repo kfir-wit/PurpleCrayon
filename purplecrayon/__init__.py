@@ -1,9 +1,46 @@
-"""PurpleCrayon - AI graphics sourcing and generation toolkit."""
+"""PurpleCrayon - AI graphics sourcing and generation toolkit.
+
+This package provides comprehensive tools for:
+- Web scraping images from websites
+- AI-powered image generation and modification
+- Asset catalog management and organization
+- Image validation and cleanup
+- Stock photo integration
+- Content-based file renaming
+
+Main Classes:
+    PurpleCrayon: Main client for all operations
+    AssetRequest: Request object for asset operations
+    ImageResult: Result object containing image data
+    OperationResult: Generic operation result wrapper
+
+Key Functions:
+    scrape_website_comprehensive: Comprehensive web scraping
+    cleanup_corrupted_images: Image validation and cleanup
+    validate_image_file: Single image validation
+    AssetCatalog: Catalog management system
+
+Example Usage:
+    from purplecrayon import PurpleCrayon, AssetRequest
+    
+    # Initialize client
+    crayon = PurpleCrayon(assets_dir="./my_assets")
+    
+    # Scrape images from a website
+    result = crayon.scrape("https://example.com", verbose=True)
+    
+    # Clean up and organize assets
+    cleanup_result = crayon.cleanup_assets(remove_junk=True)
+    
+    # Search for specific images
+    images = crayon.catalog.search_assets(query="logo", source="downloaded")
+"""
 
 from __future__ import annotations
 
 import sys as _sys
 
+# Core classes and types
 from .core import (
     AssetRequest,
     ImageResult,
@@ -12,15 +49,51 @@ from .core import (
     markdownRequest,
 )
 
+# Key tools and utilities
+from .tools.asset_management_tools import AssetCatalog
+from .tools.image_validation_tools import (
+    cleanup_corrupted_images,
+    validate_image_file,
+    validate_image_with_llm,
+)
+from .tools.scraping_tools import (
+    scrape_website_comprehensive,
+    scrape_with_engine,
+    scrape_with_fallback,
+)
+from .tools.image_renaming_tools import scan_and_rename_assets
+from .services.image_service import ImageService
+
 __version__ = "0.1.0"
 __author__ = "PurpleCrayon Team"
+__description__ = "AI graphics sourcing and generation toolkit"
 
 __all__ = [
-    "AssetRequest",
+    # Core classes
+    "PurpleCrayon",
+    "AssetRequest", 
     "ImageResult",
     "OperationResult",
-    "PurpleCrayon",
     "markdownRequest",
+    
+    # Catalog management
+    "AssetCatalog",
+    
+    # Image validation and cleanup
+    "cleanup_corrupted_images",
+    "validate_image_file", 
+    "validate_image_with_llm",
+    
+    # Web scraping
+    "scrape_website_comprehensive",
+    "scrape_with_engine",
+    "scrape_with_fallback",
+    
+    # File management
+    "scan_and_rename_assets",
+    
+    # Services
+    "ImageService",
 ]
 
 # Backwards compatibility shim for earlier module name.
