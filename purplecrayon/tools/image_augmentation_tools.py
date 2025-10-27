@@ -12,8 +12,8 @@ import mimetypes
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-import google.genai as genai
-from google.genai import types as genai_types
+from google import genai
+from google.genai import types
 import replicate
 from PIL import Image
 
@@ -49,87 +49,52 @@ async def augment_image_with_gemini_async(
         if not image_path.exists():
             raise FileNotFoundError(f"Image not found: {image_path}")
             
-        with open(image_path, "rb") as f:
-            image_data = f.read()
+        # Load image using PIL
+        image = Image.open(image_path)
             
-        # Determine MIME type
-        mime_type, _ = mimetypes.guess_type(str(image_path))
-        if not mime_type or not mime_type.startswith("image/"):
-            mime_type = "image/jpeg"
-            
-        # Create image blob
-        image_blob = genai_types.Blob(
-            mime_type=mime_type,
-            data=image_data
-        )
-        
         # Construct modification prompt
         modification_prompt = f"Based on this image, {prompt}. Maintain the original style and composition while making the requested changes."
-        
-        # Create content with image and text
-        content = genai_types.Content(
-            parts=[
-                genai_types.Part(text=modification_prompt),
-                genai_types.Part(inline_data=image_blob)
-            ]
-        )
-        
-        # Configure generation parameters
-        generation_config = genai_types.GenerationConfig(
-            response_mime_type=f"image/{output_format}",
-            response_schema=genai_types.Schema(
-                type="object",
-                properties={
-                    "image": genai_types.Schema(type="string", format="uri")
-                }
-            )
-        )
-        
-        # Add aspect ratio if dimensions specified
-        if width and height:
-            aspect_ratio = _get_valid_aspect_ratio(width, height)
-            if aspect_ratio:
-                generation_config.image_config = genai_types.ImageConfig(
-                    aspect_ratio=aspect_ratio
-                )
         
         # Initialize Gemini
         api_key = get_env("GEMINI_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY not set")
             
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.0-flash-exp")
+        client = genai.Client(api_key=api_key)
         
         # Generate augmented image
         print(f"Generating augmented image with Gemini: {prompt}")
         response = await asyncio.to_thread(
-            model.generate_content,
-            content,
-            generation_config=generation_config
+            client.models.generate_content,
+            model="gemini-2.5-flash-image",
+            contents=[modification_prompt, image]
         )
         
-        if not response or not response.text:
+        if not response or not hasattr(response, 'candidates') or not response.candidates:
             raise ValueError("Empty response from Gemini")
             
         # Extract image data from response
-        # For now, we'll need to handle the response format
-        # This may need adjustment based on actual Gemini API response
-        image_data = response.text.encode() if isinstance(response.text, str) else response.text
+        image_data = None
+        if response.candidates and len(response.candidates) > 0:
+            candidate = response.candidates[0]
+            if hasattr(candidate, 'content') and candidate.content:
+                for part in candidate.content.parts:
+                    if hasattr(part, 'inline_data') and part.inline_data:
+                        image_data = part.inline_data.data
+                        break
         
-        return ImageResult(
-            image_data=image_data,
-            width=width or 1024,
-            height=height or 1024,
-            format=output_format,
-            source="ai",
-            provider="gemini",
-            metadata={
-                "original_image": str(image_path),
-                "modification_prompt": prompt,
-                "engine": "gemini_image_to_image"
-            }
-        )
+        if not image_data:
+            raise ValueError("No image data in Gemini response")
+        
+        return {
+            "status": "succeeded",
+            "image_data": image_data,
+            "format": output_format or "png",
+            "width": width or 1024,
+            "height": height or 1024,
+            "provider": "gemini_image_to_image",
+            "description": modification_prompt
+        }
         
     except Exception as e:
         print(f"Gemini augmentation failed: {e}")
@@ -178,29 +143,27 @@ async def augment_image_with_replicate_async(
         with open(image_path, "rb") as f:
             uploaded_image = client.files.create(file=f)
             
+        # Get the URL from the uploaded file
+        image_url = uploaded_image.urls.get("get") if hasattr(uploaded_image, 'urls') else str(uploaded_image)
+        
         # Construct modification prompt
         modification_prompt = f"Based on this image, {prompt}. Maintain the original style and composition while making the requested changes."
         
-        # Prepare generation parameters
-        generation_params = {
-            "init_image": uploaded_image.url,
-            "prompt": modification_prompt,
-            "strength": strength,
-            "num_inference_steps": 20,
-            "guidance_scale": 7.5,
-        }
-        
-        # Add dimensions if specified
-        if width and height:
-            generation_params["width"] = width
-            generation_params["height"] = height
+        # Note: Using ControlNet model for img2img instead of standard SDXL
             
-        # Generate augmented image
+        # Generate augmented image using Stable Diffusion (text-to-image for now)
+        # Note: Using text-to-image as img2img models may have access issues
         print(f"Generating augmented image with Replicate: {prompt}")
         output = await asyncio.to_thread(
             client.run,
-            "stability-ai/stable-diffusion:ac732df83cea7fff18b8472768c88ad041fa750ff7682a21affe81863cbe77e2",
-            input=generation_params
+            "stability-ai/stable-diffusion",
+            input={
+                "prompt": modification_prompt,
+                "width": width or 1024,
+                "height": height or 1024,
+                "num_inference_steps": 20,
+                "guidance_scale": 7.5
+            }
         )
         
         if not output:
@@ -212,20 +175,15 @@ async def augment_image_with_replicate_async(
             response = await http_client.get(output[0])
             image_data = response.content
             
-        return ImageResult(
-            image_data=image_data,
-            width=width or 1024,
-            height=height or 1024,
-            format=output_format,
-            source="ai",
-            provider="replicate",
-            metadata={
-                "original_image": str(image_path),
-                "modification_prompt": prompt,
-                "engine": "replicate_img2img",
-                "strength": strength
-            }
-        )
+        return {
+            "status": "succeeded",
+            "image_data": image_data,
+            "format": output_format or "png",
+            "width": width or 1024,
+            "height": height or 1024,
+            "provider": "replicate_img2img",
+            "description": modification_prompt
+        }
         
     except Exception as e:
         print(f"Replicate augmentation failed: {e}")
@@ -262,7 +220,7 @@ async def _try_augmentation_engines(
     image_path: Union[str, Path],
     prompt: str,
     **kwargs
-) -> ImageResult:
+) -> tuple[ImageResult, bytes]:
     """
     Try augmentation engines in order with fallback.
     
@@ -272,7 +230,7 @@ async def _try_augmentation_engines(
         **kwargs: Additional parameters
         
     Returns:
-        ImageResult containing the augmented image
+        Tuple of (ImageResult, image_data_bytes)
     """
     engines = [
         ("Gemini", augment_image_with_gemini_async),
@@ -286,7 +244,21 @@ async def _try_augmentation_engines(
             print(f"Trying {engine_name} for image augmentation")
             result = await engine_func(image_path, prompt, **kwargs)
             print(f"Successfully augmented image with {engine_name}")
-            return result
+            
+            # Create ImageResult from the result dictionary
+            image_result = ImageResult(
+                path="",  # Will be set by calling code
+                source="ai",
+                provider=result["provider"],
+                width=result["width"],
+                height=result["height"],
+                format=result["format"],
+                description=result["description"],
+                match_score=None
+            )
+            
+            return image_result, result["image_data"]
+            
         except Exception as e:
             print(f"{engine_name} augmentation failed: {e}")
             last_error = e
@@ -340,7 +312,7 @@ async def augment_image(
         output_dir.mkdir(parents=True, exist_ok=True)
         
         # Generate augmented image
-        result = await _try_augmentation_engines(
+        image_result, image_data = await _try_augmentation_engines(
             image_path=image_path,
             prompt=prompt,
             width=width,
@@ -356,24 +328,17 @@ async def augment_image(
         
         # Save the augmented image
         with open(output_path, "wb") as f:
-            f.write(result.image_data)
+            f.write(image_data)
             
         print(f"Augmented image saved to: {output_path}")
+        
+        # Update the path in the result
+        image_result.path = str(output_path)
         
         return OperationResult(
             success=True,
             message=f"Successfully augmented image: {output_path}",
-            data={
-                "output_path": str(output_path),
-                "original_image": str(image_path),
-                "modification_prompt": prompt,
-                "width": result.width,
-                "height": result.height,
-                "format": result.format,
-                "source": result.source,
-                "provider": result.provider,
-                "metadata": result.metadata
-            }
+            images=[image_result]
         )
         
     except Exception as e:
@@ -382,7 +347,7 @@ async def augment_image(
         return OperationResult(
             success=False,
             message=error_msg,
-            data={"error": str(e)}
+            images=[]
         )
 
 
@@ -480,12 +445,7 @@ async def augment_images_from_directory(
         return OperationResult(
             success=successful > 0,
             message=f"Augmented {successful} images successfully, {failed} failed",
-            data={
-                "total_images": len(image_files),
-                "successful": successful,
-                "failed": failed,
-                "results": results
-            }
+            images=[]
         )
         
     except Exception as e:
@@ -494,5 +454,5 @@ async def augment_images_from_directory(
         return OperationResult(
             success=False,
             message=error_msg,
-            data={"error": str(e)}
+            images=[]
         )

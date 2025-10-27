@@ -406,22 +406,10 @@ class PurpleCrayon:
             )
             
             if result.success:
-                # Create ImageResult for the augmented image
-                augmented_image = ImageResult(
-                    path=result.data["output_path"],
-                    source="ai",
-                    provider=result.data["provider"],
-                    width=result.data["width"],
-                    height=result.data["height"],
-                    format=result.data["format"],
-                    description=f"Augmented: {prompt}",
-                    match_score=None
-                )
-                
                 return OperationResult(
                     success=True,
-                    message=f"Successfully augmented image: {result.data['output_path']}",
-                    images=[augmented_image]
+                    message=f"Successfully augmented image: {result.images[0].path if result.images else 'Unknown'}",
+                    images=result.images
                 )
             else:
                 return OperationResult(

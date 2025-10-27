@@ -169,7 +169,7 @@ async def demonstrate_augmentation():
     print("  • Use high-quality source images for better results")
 
 
-def demonstrate_sync_augmentation():
+async def demonstrate_sync_augmentation():
     """Demonstrate synchronous augmentation (for comparison)."""
     
     print("\n🔄 Synchronous Augmentation Demo")
@@ -191,7 +191,7 @@ def demonstrate_sync_augmentation():
     print(f"📸 Using source image: {source_image}")
     
     try:
-        result = crayon.augment(
+        result = await crayon.augment_async(
             image_path=source_image,
             prompt="add a magical forest background with glowing mushrooms and fireflies",
             width=1024,
@@ -232,7 +232,7 @@ async def main():
     await demonstrate_augmentation()
     
     # Run sync demonstration
-    demonstrate_sync_augmentation()
+    await demonstrate_sync_augmentation()
     
     print("\n🎉 Augmentation demo completed!")
     print("💡 Check the example_assets/ai/ directory for your augmented images")
