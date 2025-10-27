@@ -74,3 +74,36 @@ async def test_generate_ai_images_respects_preferred_sources(monkeypatch, tmp_pa
 
     assert len(results) == 1
     assert results[0].provider == "gemini"
+
+
+def test_dict_to_image_result_handles_inline_data(monkeypatch, tmp_path):
+    service = ImageService(tmp_path)
+    ai_dir = tmp_path / "ai"
+    ai_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create simple PNG bytes
+    import io
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (16, 8), color="red").save(buffer, format="PNG")
+    png_bytes = buffer.getvalue()
+
+    saved_path = str(ai_dir / "gemini_123.png")
+    monkeypatch.setattr("purplecrayon.tools.file_tools.save_file", lambda content, path: saved_path)
+    monkeypatch.setattr("time.time", lambda: 123)
+
+    result = service._dict_to_image_result(
+        {
+            "image_data": png_bytes,
+            "format": "png",
+            "description": "generated",
+        },
+        source="ai",
+        provider="gemini",
+    )
+
+    assert result.path == saved_path
+    assert result.width == 16
+    assert result.height == 8
+    assert result.format == "png"
+    assert result.description == "generated"
