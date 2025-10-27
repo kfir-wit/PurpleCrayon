@@ -8,12 +8,20 @@ from purplecrayon import OperationResult, PurpleCrayon, markdownRequest
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="PurpleCrayon AI Graphics Agent")
-    parser.add_argument("--mode", default="full", choices=["full", "search", "generate", "process", "benchmark", "scrape"], help="Run mode")
+    parser.add_argument("--mode", default="full", choices=["full", "search", "generate", "process", "benchmark", "scrape", "clone"], help="Run mode")
     parser.add_argument("--url", help="URL to scrape (required for scrape mode)")
+    parser.add_argument("--source", help="Source image file or directory to clone (required for clone mode)")
+    parser.add_argument("--width", type=int, help="Width for cloned images")
+    parser.add_argument("--height", type=int, help="Height for cloned images")
+    parser.add_argument("--format", help="Output format for cloned images (png, jpg, webp, etc.)")
+    parser.add_argument("--style", help="Style guidance for cloned images (photorealistic, artistic, etc.)")
+    parser.add_argument("--guidance", help="Additional guidance for image generation")
+    parser.add_argument("--similarity-threshold", type=float, default=0.7, help="Maximum similarity threshold (0.0-1.0)")
+    parser.add_argument("--max-images", type=int, help="Maximum number of images to process (for directory input)")
     parser.add_argument("--sort-catalog", action="store_true", help="Sort and update catalog in assets/ directory")
     parser.add_argument("--cleanup", action="store_true", help="Clean up corrupted and junk images")
     parser.add_argument("--keep-junk", action="store_true", help="Keep junk files when cleaning (only remove corrupted)")
-    parser.add_argument("--format", choices=["yaml", "json", "both"], default="both", help="Catalog format (default: both)")
+    parser.add_argument("--catalog-format", choices=["yaml", "json", "both"], default="both", help="Catalog format (default: both)")
     args = parser.parse_args()
     
     # Initialize package
@@ -24,7 +32,7 @@ def main() -> None:
         print("🧹 Cleaning up corrupted and junk images...")
         print("=" * 50)
         
-        result = crayon.cleanup_assets(remove_junk=not args.keep_junk, format=args.format)
+        result = crayon.cleanup_assets(remove_junk=not args.keep_junk, format=args.catalog_format)
         
         if result["success"]:
             cleanup_stats = result['cleanup_stats']
@@ -80,10 +88,35 @@ def main() -> None:
         print("Example: uv run python -m main --mode scrape --url 'https://example.com/gallery'")
         return
     
+    # Validate clone mode
+    if args.mode == "clone" and not args.source:
+        print("❌ Error: --source is required for clone mode")
+        print("Example: uv run python -m main --mode clone --source './assets/downloaded/image.jpg'")
+        print("Example: uv run python -m main --mode clone --source './assets/downloaded/' --max-images 5")
+        return
+    
     # Handle scrape mode
     if args.mode == "scrape":
         result = crayon.scrape(args.url)
         print_operation_result(result, "Scrape")
+        return
+    
+    # Handle clone mode
+    if args.mode == "clone":
+        print("🎨 Cloning images...")
+        print("=" * 50)
+        
+        result = crayon.clone(
+            source=args.source,
+            width=args.width,
+            height=args.height,
+            format=args.format,
+            style=args.style,
+            guidance=args.guidance,
+            similarity_threshold=args.similarity_threshold,
+            max_images=args.max_images
+        )
+        print_operation_result(result, "Clone")
         return
     
     # Handle other modes using prompt file

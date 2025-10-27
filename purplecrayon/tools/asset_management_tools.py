@@ -125,6 +125,8 @@ class AssetCatalog:
         # Check directory structure first
         if "/ai/" in path_str or "\\ai\\" in path_str:
             return "ai"
+        elif "/cloned/" in path_str or "\\cloned\\" in path_str:
+            return "ai"  # Cloned files are AI-generated alternatives
         elif "/stock/" in path_str or "\\stock\\" in path_str:
             return "stock"
         elif "/proprietary/" in path_str or "\\proprietary\\" in path_str:
@@ -133,7 +135,7 @@ class AssetCatalog:
             return "downloaded"
         
         # Fallback to filename patterns
-        if "ai_gemini" in path_str or "ai_" in path_str:
+        if "ai_gemini" in path_str or "ai_" in path_str or "cloned_" in path_str:
             return "ai"
         elif "stock_" in path_str or "unsplash" in path_str or "pexels" in path_str or "pixabay" in path_str:
             return "stock"

@@ -7,6 +7,7 @@ from .parsers import markdownRequest
 from ..services.image_service import ImageService
 from ..tools.asset_management_tools import AssetCatalog
 from ..tools.image_renaming_tools import scan_and_rename_assets
+from ..tools.clone_image_tools import clone_image, clone_images_from_directory
 
 
 class PurpleCrayon:
@@ -21,7 +22,7 @@ class PurpleCrayon:
     def _ensure_asset_structure(self):
         """Create standard asset structure if not exists."""
         # Create standard directories
-        for subdir in ["ai", "stock", "proprietary", "downloaded"]:
+        for subdir in ["ai", "stock", "proprietary", "downloaded", "cloned"]:
             (self.assets_dir / subdir).mkdir(parents=True, exist_ok=True)
     
     async def source_async(self, request: AssetRequest) -> OperationResult:
@@ -182,6 +183,178 @@ class PurpleCrayon:
                 "success": False,
                 "error": str(e)
             }
+    
+    async def clone_async(
+        self,
+        source: str | Path,
+        *,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        format: Optional[str] = None,
+        style: Optional[str] = None,
+        guidance: Optional[str] = None,
+        similarity_threshold: float = 0.7,
+        max_images: Optional[int] = None
+    ) -> OperationResult:
+        """
+        Clone images from downloaded/ or proprietary/ folders using AI.
+        
+        Args:
+            source: Path to source image file or directory
+            width: Desired width for cloned images
+            height: Desired height for cloned images
+            format: Output format (if None, uses original format)
+            style: Style guidance (photorealistic, artistic, etc.)
+            guidance: Additional guidance for generation
+            similarity_threshold: Maximum allowed similarity to original
+            max_images: Maximum number of images to process (for directory input)
+            
+        Returns:
+            OperationResult containing clone results
+        """
+        try:
+            source_path = Path(source)
+            output_dir = self.assets_dir / "cloned"
+            
+            # Determine if source is file or directory
+            if source_path.is_file():
+                # Single file cloning
+                print(f"🎨 Cloning single image: {source_path.name}")
+                result = await clone_image(
+                    source_path,
+                    width=width,
+                    height=height,
+                    format=format,
+                    style=style,
+                    guidance=guidance,
+                    similarity_threshold=similarity_threshold,
+                    output_dir=output_dir
+                )
+                
+                if result["success"]:
+                    # Create ImageResult for the cloned image
+                    cloned_image = ImageResult(
+                        path=result["clone_path"],
+                        source="cloned",
+                        provider="ai_clone",
+                        width=result["clone_dimensions"][0],
+                        height=result["clone_dimensions"][1],
+                        format=result["format"],
+                        description=f"Cloned from {result['original_filename']}",
+                        match_score=None
+                    )
+                    
+                    return OperationResult(
+                        success=True,
+                        message=f"Successfully cloned {result['original_filename']} -> {result['clone_filename']}",
+                        images=[cloned_image]
+                    )
+                else:
+                    return OperationResult(
+                        success=False,
+                        message=f"Failed to clone image: {result['error']}",
+                        images=[]
+                    )
+            
+            elif source_path.is_dir():
+                # Directory batch cloning
+                print(f"🎨 Cloning all images from directory: {source_path}")
+                result = await clone_images_from_directory(
+                    source_path,
+                    output_dir=output_dir,
+                    width=width,
+                    height=height,
+                    format=format,
+                    style=style,
+                    guidance=guidance,
+                    similarity_threshold=similarity_threshold,
+                    max_images=max_images
+                )
+                
+                if result["success"]:
+                    # Create ImageResult objects for successful clones
+                    cloned_images = []
+                    for clone_result in result["results"]:
+                        if clone_result["success"]:
+                            cloned_image = ImageResult(
+                                path=clone_result["clone_path"],
+                                source="cloned",
+                                provider="ai_clone",
+                                width=clone_result["clone_dimensions"][0],
+                                height=clone_result["clone_dimensions"][1],
+                                format=clone_result["format"],
+                                description=f"Cloned from {clone_result['original_filename']}",
+                                match_score=None
+                            )
+                            cloned_images.append(cloned_image)
+                    
+                    return OperationResult(
+                        success=True,
+                        message=f"Successfully cloned {result['successful']}/{result['total_images']} images",
+                        images=cloned_images
+                    )
+                else:
+                    return OperationResult(
+                        success=False,
+                        message=f"Failed to clone images from directory: {result['error']}",
+                        images=[]
+                    )
+            else:
+                return OperationResult(
+                    success=False,
+                    message=f"Source path does not exist: {source_path}",
+                    images=[]
+                )
+                
+        except Exception as e:
+            return OperationResult(
+                success=False,
+                message=f"Clone operation failed: {str(e)}",
+                images=[]
+            )
+    
+    def clone(
+        self,
+        source: str | Path,
+        *,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        format: Optional[str] = None,
+        style: Optional[str] = None,
+        guidance: Optional[str] = None,
+        similarity_threshold: float = 0.7,
+        max_images: Optional[int] = None
+    ) -> OperationResult:
+        """
+        Clone images synchronously (wrapper around clone_async).
+        
+        Args:
+            source: Path to source image file or directory
+            width: Desired width for cloned images
+            height: Desired height for cloned images
+            format: Output format (if None, uses original format)
+            style: Style guidance (photorealistic, artistic, etc.)
+            guidance: Additional guidance for generation
+            similarity_threshold: Maximum allowed similarity to original
+            max_images: Maximum number of images to process (for directory input)
+            
+        Returns:
+            OperationResult containing clone results
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(self.clone_async(
+                source=source,
+                width=width,
+                height=height,
+                format=format,
+                style=style,
+                guidance=guidance,
+                similarity_threshold=similarity_threshold,
+                max_images=max_images
+            ))
+        raise RuntimeError("PurpleCrayon.clone() cannot be used inside an active event loop. Use await PurpleCrayon.clone_async(...) instead.")
     
     async def _source_async(self, request: AssetRequest) -> List[ImageResult]:
         """Async implementation of source method."""

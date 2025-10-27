@@ -62,6 +62,13 @@ from .tools.scraping_tools import (
     scrape_with_fallback,
 )
 from .tools.image_renaming_tools import scan_and_rename_assets
+from .tools.clone_image_tools import (
+    clone_image,
+    clone_images_from_directory,
+    describe_image_for_regeneration,
+    check_similarity,
+    is_sufficiently_different,
+)
 from .services.image_service import ImageService
 
 __version__ = "0.1.0"
@@ -91,6 +98,13 @@ __all__ = [
     
     # File management
     "scan_and_rename_assets",
+    
+    # Image cloning
+    "clone_image",
+    "clone_images_from_directory",
+    "describe_image_for_regeneration",
+    "check_similarity",
+    "is_sufficiently_different",
     
     # Services
     "ImageService",
