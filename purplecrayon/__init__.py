@@ -117,7 +117,7 @@ from .tools.image_augmentation_tools import (
 )
 from .services.image_service import ImageService
 
-__version__ = "0.1.0"
+__version__ = "0.1.2"
 __author__ = "PurpleCrayon Team"
 __description__ = "AI graphics sourcing and generation toolkit"
 

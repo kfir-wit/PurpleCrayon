@@ -4,11 +4,15 @@ Test: Image-to-image generation with proper API calls
 This tests the fixed image-to-image functionality.
 """
 
-import asyncio
 from pathlib import Path
 from purplecrayon.tools.ai_generation_tools import generate_with_gemini_image_to_image_async
 
 
+import asyncio
+import pytest
+
+
+@pytest.mark.asyncio
 async def test_image_to_image():
     """Test image-to-image generation with a simple image."""
     source_image = "./example_assets/stock/stock_pixabay_6_1280x853.jpg"

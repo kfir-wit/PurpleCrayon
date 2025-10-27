@@ -16,7 +16,7 @@ class AssetRequest:
     aspect_ratio: Optional[str] = None  # e.g., "16:9", "1:1", "4:3"
     
     # Optional - Format specifications
-    format: Optional[Literal["jpg", "png", "gif", "webp", "ico"]] = None
+    format: Optional[Literal["jpg", "jpeg", "png", "gif", "webp", "ico"]] = None
     has_alpha: Optional[bool] = None  # Require/prefer transparency
     
     # Optional - Quality/style preferences

@@ -28,6 +28,17 @@ class ImageService:
         tags = request.tags or []
         candidates = self.catalog.search_assets(query=query, tags=tags)
 
+        def format_matches(asset_format: str) -> bool:
+            if not request.format:
+                return True
+            desired = request.format.lower()
+            asset_format = (asset_format or "").lower()
+            if asset_format == desired:
+                return True
+            if desired in {"jpg", "jpeg"} and asset_format in {"jpg", "jpeg"}:
+                return True
+            return False
+
         results: List[ImageResult] = []
         for asset in candidates:
             rel_path = asset.get("path")
@@ -44,7 +55,7 @@ class ImageService:
             fmt = (asset.get("format") or "").lower()
             has_alpha = asset.get("has_alpha")
 
-            if request.format and fmt and fmt != request.format.lower():
+            if not format_matches(fmt):
                 continue
             if request.has_alpha is True and not has_alpha:
                 continue
@@ -91,6 +102,21 @@ class ImageService:
     async def fetch_stock_images(self, request: AssetRequest) -> List[ImageResult]:
         """Fetch from all stock photo APIs."""
         results = []
+        preferred = {src.lower() for src in request.preferred_sources if src}
+        exclude = {src.lower() for src in request.exclude_sources if src}
+
+        def provider_allowed(name: str, category: str) -> bool:
+            name = name.lower()
+            category = category.lower()
+            if name in exclude or category in exclude:
+                return False
+            if not preferred:
+                return True
+            return (
+                name in preferred
+                or category in preferred
+                or "all" in preferred
+            )
         
         # Extract target size/orientation hint for downstream services
         target_hint: Optional[str] = None
@@ -102,7 +128,7 @@ class ImageService:
             target_hint = request.aspect_ratio
         
         # Search all stock photo APIs
-        if "unsplash" not in request.exclude_sources:
+        if provider_allowed("unsplash", "stock"):
             try:
                 unsplash_results = await search_unsplash(
                     request.description, 
@@ -114,7 +140,7 @@ class ImageService:
             except Exception as e:
                 print(f"Unsplash search failed: {e}")
         
-        if "pexels" not in request.exclude_sources:
+        if provider_allowed("pexels", "stock"):
             try:
                 pexels_results = await search_pexels(
                     request.description,
@@ -126,7 +152,7 @@ class ImageService:
             except Exception as e:
                 print(f"Pexels search failed: {e}")
         
-        if "pixabay" not in request.exclude_sources:
+        if provider_allowed("pixabay", "stock"):
             try:
                 pixabay_results = await search_pixabay(
                     request.description,
@@ -143,9 +169,24 @@ class ImageService:
     async def generate_ai_images(self, request: AssetRequest) -> List[ImageResult]:
         """Generate using all AI providers."""
         results = []
+        preferred = {src.lower() for src in request.preferred_sources if src}
+        exclude = {src.lower() for src in request.exclude_sources if src}
+
+        def provider_allowed(name: str, category: str) -> bool:
+            name = name.lower()
+            category = category.lower()
+            if name in exclude or category in exclude:
+                return False
+            if not preferred:
+                return True
+            return (
+                name in preferred
+                or category in preferred
+                or "all" in preferred
+            )
         
         # Generate with Gemini
-        if "gemini" not in request.exclude_sources:
+        if provider_allowed("gemini", "ai"):
             try:
                 gemini_result = await generate_with_gemini_async(
                     request.description,
@@ -157,7 +198,7 @@ class ImageService:
                 print(f"Gemini generation failed: {e}")
         
         # Generate with Imagen
-        if "imagen" not in request.exclude_sources:
+        if provider_allowed("imagen", "ai"):
             try:
                 imagen_result = await generate_with_imagen(request.description)
                 if imagen_result.get("status") in {"success", "succeeded"}:

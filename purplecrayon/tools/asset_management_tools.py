@@ -24,7 +24,7 @@ class AssetCatalog:
                 "stats": {
                     "total_assets": 0,
                     "by_source": {"ai": 0, "stock": 0, "proprietary": 0, "downloaded": 0},
-                        "by_format": {"jpg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0, "svg": 0, "bmp": 0, "tiff": 0},
+                    "by_format": {"jpg": 0, "jpeg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0, "svg": 0, "bmp": 0, "tiff": 0},
                     "by_aspect_ratio": {"square": 0, "landscape": 0, "portrait": 0}
                 },
                 "assets": []
@@ -38,7 +38,7 @@ class AssetCatalog:
                     data["stats"] = {
                         "total_assets": 0,
                         "by_source": {"ai": 0, "stock": 0, "proprietary": 0, "downloaded": 0},
-                        "by_format": {"jpg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0, "svg": 0, "bmp": 0, "tiff": 0},
+                        "by_format": {"jpg": 0, "jpeg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0, "svg": 0, "bmp": 0, "tiff": 0},
                         "by_aspect_ratio": {"square": 0, "landscape": 0, "portrait": 0}
                     }
                 if "assets" not in data:
@@ -50,7 +50,7 @@ class AssetCatalog:
                 "stats": {
                     "total_assets": 0,
                     "by_source": {"ai": 0, "stock": 0, "proprietary": 0, "downloaded": 0},
-                        "by_format": {"jpg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0, "svg": 0, "bmp": 0, "tiff": 0},
+                    "by_format": {"jpg": 0, "jpeg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0, "svg": 0, "bmp": 0, "tiff": 0},
                     "by_aspect_ratio": {"square": 0, "landscape": 0, "portrait": 0}
                 },
                 "assets": []
@@ -340,7 +340,7 @@ class AssetCatalog:
         stats = {
             "total_assets": len(assets),
             "by_source": {"ai": 0, "stock": 0, "proprietary": 0, "downloaded": 0},
-                        "by_format": {"jpg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0, "svg": 0, "bmp": 0, "tiff": 0},
+            "by_format": {"jpg": 0, "jpeg": 0, "png": 0, "webp": 0, "gif": 0, "ico": 0, "svg": 0, "bmp": 0, "tiff": 0},
             "by_aspect_ratio": {"square": 0, "landscape": 0, "portrait": 0}
         }
         
@@ -384,7 +384,7 @@ class AssetCatalog:
         for file_path in assets_dir.rglob('*'):
             if file_path.is_file() and file_path.suffix.lower() in image_extensions:
                 try:
-                    rel_path = str(file_path.relative_to(assets_dir.parent))
+                    rel_path = str(file_path.relative_to(assets_dir))
                     
                     if rel_path in existing_paths:
                         # Check if file was renamed
