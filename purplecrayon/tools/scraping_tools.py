@@ -95,9 +95,9 @@ async def download_image_robust(url: str, output_dir: Path, verbose: bool = Fals
                             print(f"     ❌ Invalid content type: {content_type}")
                         return None
                     
-                    # Check file size
+                    # Check file size (only reject extremely small files)
                     content_length = len(response.content)
-                    if content_length < 1024:  # Less than 1KB
+                    if content_length < 50:  # Less than 50 bytes (likely empty/corrupt)
                         if verbose:
                             print(f"     ❌ File too small: {content_length} bytes")
                         return None
