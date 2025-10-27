@@ -152,18 +152,19 @@ async def augment_image_with_replicate_async(
         
         # Note: Using ControlNet model for img2img instead of standard SDXL
             
-        # Generate augmented image using Stable Diffusion (text-to-image for now)
-        # Note: Using text-to-image as img2img models may have access issues
+        # Generate augmented image using FLUX.1 Kontext Pro for image editing
         print(f"Generating augmented image with Replicate: {prompt}")
         output = await asyncio.to_thread(
             client.run,
-            "stability-ai/stable-diffusion",
+            "black-forest-labs/flux-kontext-pro",
             input={
+                "image": image_url,
                 "prompt": modification_prompt,
-                "width": width or 1024,
-                "height": height or 1024,
+                "strength": strength,
                 "num_inference_steps": 20,
-                "guidance_scale": 7.5
+                "guidance_scale": 7.5,
+                "width": width or 1024,
+                "height": height or 1024
             }
         )
         
@@ -173,7 +174,9 @@ async def augment_image_with_replicate_async(
         # Download the generated image
         import httpx
         async with httpx.AsyncClient() as http_client:
-            response = await http_client.get(output[0])
+            # FLUX Kontext Pro returns a FileOutput object directly
+            image_url = output if isinstance(output, str) else str(output)
+            response = await http_client.get(image_url)
             image_data = response.content
             
         return {
@@ -306,7 +309,7 @@ async def augment_image(
             
         # Determine output directory
         if output_dir is None:
-            output_dir = Path("assets/ai")
+            raise ValueError("output_dir is required for standalone augment_image() function. Use PurpleCrayon.augment_async() for automatic directory handling.")
         else:
             output_dir = Path(output_dir)
             

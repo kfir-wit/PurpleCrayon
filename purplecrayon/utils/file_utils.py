@@ -26,13 +26,17 @@ def get_unique_filename(base_path: Path, prefix: str = "", suffix: str = "", ext
         >>> get_unique_filename(Path("output/image.png"), "augmented", "_v1", ".png")
         Path("output/augmented_image_v1.png")
     """
-    # Ensure extension starts with dot
-    if extension and not extension.startswith('.'):
-        extension = f".{extension}"
-    
     # Get the directory and base name
     directory = base_path.parent
     base_name = base_path.stem
+    original_extension = base_path.suffix  # Get the original extension
+    
+    # Use provided extension or fall back to original
+    if extension:
+        if not extension.startswith('.'):
+            extension = f".{extension}"
+    else:
+        extension = original_extension
     
     # Construct the desired filename
     if prefix:
