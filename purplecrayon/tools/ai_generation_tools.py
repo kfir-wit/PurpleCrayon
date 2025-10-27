@@ -155,14 +155,14 @@ def generate_with_gemini_image_to_image(prompt: str, source_image_path: str, asp
         
         # Create the content with both text and image
         # For Gemini, we need to use the proper Content structure
-        from google.genai import types
+        from google.genai import types as genai_types
         
         contents = [
-            types.Content(
+            genai_types.Content(
                 parts=[
-                    types.Part(text=prompt),
-                    types.Part(
-                        inline_data=types.Blob(
+                    genai_types.Part(text=prompt),
+                    genai_types.Part(
+                        inline_data=genai_types.Blob(
                             mime_type=mime_type,
                             data=image_data
                         )

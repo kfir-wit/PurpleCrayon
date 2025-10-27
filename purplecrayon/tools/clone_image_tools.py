@@ -156,7 +156,7 @@ async def _try_imagen_generation(prompt: str, width: int, height: int, source_im
             image_url = uploaded_image.url if hasattr(uploaded_image, 'url') else str(uploaded_image)
             
             result = client.run(
-                "stability-ai/stable-diffusion:27b93a2413e7f36cd83da926f3656280b2931564ff050bf9575f1fdf9bcd747e",
+                "stability-ai/stable-diffusion:ac732df83cea7fff18b8472768c88ad041fa750ff7682a21affe81863cbe77e2",
                 input={
                     "prompt": prompt,
                     "init_image": image_url,
@@ -170,7 +170,7 @@ async def _try_imagen_generation(prompt: str, width: int, height: int, source_im
         else:
             print("🎨 Using Replicate text-to-image generation")
             result = client.run(
-                "stability-ai/stable-diffusion:27b93a2413e7f36cd83da926f3656280b2931564ff050bf9575f1fdf9bcd747e",
+                "stability-ai/stable-diffusion:ac732df83cea7fff18b8472768c88ad041fa750ff7682a21affe81863cbe77e2",
                 input={
                     "prompt": prompt,
                     "width": width,
@@ -299,8 +299,24 @@ async def describe_image_for_regeneration(
         # Convert image to base64
         image_base64 = _get_image_base64(image_path)
         
-        # Create the prompt with image
-        prompt = VISION_ANALYSIS_PROMPT
+        # Create the prompt with image - enhanced to populate AssetRequest properties
+        prompt = """
+        Analyze this image and create a detailed description for AI image generation that includes:
+        
+        1. MAIN SUBJECT: What is the primary subject or focus of the image?
+        2. COMPOSITION: How is the image framed and composed?
+        3. STYLE: What artistic or photographic style is used?
+        4. MOOD/ATMOSPHERE: What feeling or mood does the image convey?
+        5. COLORS: What are the dominant colors and color palette?
+        6. LIGHTING: How is the image lit (natural, artificial, soft, dramatic)?
+        7. TEXTURE: What textures are visible or implied?
+        8. SETTING: Where is the scene taking place?
+        9. TECHNICAL DETAILS: Any notable technical aspects (depth of field, etc.)
+        
+        Format your response as a single, flowing description that could be used to generate a similar image with AI.
+        Be specific about visual elements but concise enough for effective AI generation.
+        Focus on the most important visual characteristics that would help recreate the essence of this image.
+        """
         
         # Generate description
         try:
@@ -354,10 +370,32 @@ async def describe_image_for_regeneration(
             # Join all text parts
             description = " ".join(description_parts).strip()
             
+            # Print the generated description for debugging
+            print(f"📝 Generated Description for {image_path.name}:")
+            print(f"   {description[:200]}{'...' if len(description) > 200 else ''}")
+            print()
+            
         except Exception as e:
+            print(f"⚠️ Vision analysis failed: {str(e)}, using filename-based description")
+            # Fallback to filename-based description
+            with Image.open(image_path) as img:
+                width, height = img.size
+                img_format = img.format.lower() if img.format else "jpeg"
+            
+            filename = image_path.stem
+            description = f"A high-quality {filename.replace('_', ' ')} image, {width}x{height} {img_format}, professional photography style, detailed and clear"
+            
+            print(f"📝 Fallback Description for {image_path.name}:")
+            print(f"   {description}")
+            print()
+            
             return {
-                "success": False,
-                "error": f"Image analysis failed: {str(e)}"
+                "success": True,
+                "description": description,
+                "original_dimensions": (width, height),
+                "original_format": img_format,
+                "perceptual_hash": "",
+                "extra_meta": {}
             }
         
         # Calculate perceptual hash for similarity checking

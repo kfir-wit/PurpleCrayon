@@ -19,6 +19,41 @@ from ..core.types import AssetRequest
 from ..utils.config import get_env
 
 
+def extract_style_from_description(description: str) -> str:
+    """
+    Extract the detected style from the image description.
+    
+    Args:
+        description: The generated description from vision analysis
+        
+    Returns:
+        Detected style (photorealistic, artistic, watercolor, etc.)
+    """
+    description_lower = description.lower()
+    
+    # Common style keywords to look for
+    style_keywords = {
+        'photorealistic': ['photorealistic', 'realistic', 'photo-realistic', 'lifelike', 'naturalistic'],
+        'artistic': ['artistic', 'artistic style', 'creative', 'stylized'],
+        'watercolor': ['watercolor', 'watercolour', 'water color', 'painted'],
+        'oil painting': ['oil painting', 'oil paint', 'classical painting'],
+        'digital art': ['digital art', 'digital illustration', 'digital painting'],
+        'sketch': ['sketch', 'drawn', 'pencil', 'charcoal'],
+        'cartoon': ['cartoon', 'cartoonish', 'animated', 'comic'],
+        'abstract': ['abstract', 'abstract art', 'non-representational'],
+        'minimalist': ['minimalist', 'minimal', 'clean', 'simple']
+    }
+    
+    # Find the first matching style
+    for style, keywords in style_keywords.items():
+        for keyword in keywords:
+            if keyword in description_lower:
+                return style
+    
+    # Default to photorealistic if no style detected
+    return 'photorealistic'
+
+
 async def analyze_image_for_description(image_path: str | Path) -> Dict[str, Any]:
     """
     Analyze an image and generate a detailed description for AI generation.
@@ -55,19 +90,24 @@ async def analyze_image_for_description(image_path: str | Path) -> Dict[str, Any
         elif image_path.suffix.lower() in ['.gif']:
             mime_type = "image/gif"
         
-        # Create the prompt for image analysis
+        # Create the prompt for image analysis - enhanced for AssetRequest properties
         prompt = """
-        Analyze this image and create a detailed, descriptive prompt that could be used to generate a similar image with AI. 
+        Analyze this image and create a detailed description for AI image generation that includes:
         
-        Focus on:
-        - Main subjects and objects
-        - Composition and framing
-        - Colors and lighting
-        - Style and mood
-        - Technical details (resolution, format)
+        1. MAIN SUBJECT: What is the primary subject or focus of the image?
+        2. COMPOSITION: How is the image framed and composed?
+        3. STYLE: What artistic or photographic style is used? (be specific: photorealistic, artistic, watercolor, oil painting, digital art, etc.)
+        4. MOOD/ATMOSPHERE: What feeling or mood does the image convey?
+        5. COLORS: What are the dominant colors and color palette?
+        6. LIGHTING: How is the image lit (natural, artificial, soft, dramatic)?
+        7. TEXTURE: What textures are visible or implied?
+        8. SETTING: Where is the scene taking place?
+        9. TECHNICAL DETAILS: Any notable technical aspects (depth of field, etc.)
         
-        Make the description specific enough that an AI could recreate a similar image, but general enough to be creative.
-        Return only the descriptive prompt, no additional text.
+        IMPORTANT: Identify the specific style of the original image (photorealistic, artistic, watercolor, etc.) and mention it clearly in your description.
+        Format your response as a single, flowing description that could be used to generate a similar image with AI.
+        Be specific about visual elements but concise enough for effective AI generation.
+        Focus on the most important visual characteristics that would help recreate the essence of this image.
         """
         
         # Generate description
@@ -88,6 +128,9 @@ async def analyze_image_for_description(image_path: str | Path) -> Dict[str, Any
             # Extract description from response
             if response and hasattr(response, 'text') and response.text:
                 description = response.text.strip()
+                print(f"📝 Generated Description for {image_path.name}:")
+                print(f"   {description[:200]}{'...' if len(description) > 200 else ''}")
+                print()
             else:
                 # Fallback to filename-based description
                 with Image.open(image_path) as img:
@@ -96,6 +139,9 @@ async def analyze_image_for_description(image_path: str | Path) -> Dict[str, Any
                 
                 filename = image_path.stem
                 description = f"A high-quality {filename.replace('_', ' ')} image, {width}x{height} {img_format}, professional photography style, detailed and clear"
+                print(f"📝 Fallback Description for {image_path.name}:")
+                print(f"   {description}")
+                print()
             
         except Exception as e:
             print(f"⚠️ Vision analysis failed: {str(e)}, using filename-based description")
@@ -112,12 +158,16 @@ async def analyze_image_for_description(image_path: str | Path) -> Dict[str, Any
             width, height = img.size
             img_format = img.format.lower() if img.format else "jpeg"
         
+        # Extract detected style from description
+        detected_style = extract_style_from_description(description)
+        
         return {
             "success": True,
             "description": description,
             "original_dimensions": (width, height),
             "original_format": img_format,
-            "original_path": str(image_path)
+            "original_path": str(image_path),
+            "detected_style": detected_style
         }
         
     except Exception as e:
@@ -180,9 +230,12 @@ def create_asset_request_from_image(
         filename = image_path.stem
         description = f"A high-quality {filename.replace('_', ' ')} image, {target_width}x{target_height} {format}, professional photography style, detailed and clear"
     
+    # Use detected style if no style provided, otherwise use provided style
+    final_style = style if style else "photorealistic"  # Will be overridden by detected style if available
+    
     # Add style guidance
-    if style:
-        description = f"{style} style, {description}"
+    if final_style:
+        description = f"{final_style} style, {description}"
     
     # Add additional guidance
     if guidance:
@@ -253,21 +306,32 @@ async def clone_image_simple(
         
         # Step 2: Create AssetRequest from the analysis
         print(f"📝 Creating AssetRequest...")
+        
+        # Use detected style if no style provided
+        detected_style = analysis.get("detected_style", "photorealistic")
+        final_style = style if style else detected_style
+        
+        print(f"🎨 Style: {final_style} (detected: {detected_style}, provided: {style})")
+        
         request = create_asset_request_from_image(
             image_path,
             width=width,
             height=height,
             format=format,
-            style=style,
+            style=final_style,
             guidance=guidance,
             description=description
         )
         
         print(f"🎨 AssetRequest created:")
-        print(f"   Description: {request.description[:100]}...")
+        print(f"   Description: {request.description[:200]}...")
         print(f"   Dimensions: {request.width}x{request.height}")
         print(f"   Format: {request.format}")
         print(f"   Style: {request.style}")
+        print(f"   Quality: {request.quality}")
+        print(f"   Sources: {request.preferred_sources}")
+        print(f"   Max Results: {request.max_results}")
+        print()
         
         # Step 3: Use the standard generation pipeline
         print(f"🤖 Generating AI image using standard pipeline...")
@@ -310,7 +374,12 @@ async def clone_image_simple(
             if format == original_format:
                 output_filename = f"{original_name}{original_extension}"
             else:
-                output_filename = f"{original_name}.{format}"
+                # Ensure we have a proper extension
+                if format and format != "None":
+                    output_filename = f"{original_name}.{format}"
+                else:
+                    # Fallback to original extension
+                    output_filename = f"{original_name}{original_extension}"
             
             output_path = output_dir / output_filename
             
