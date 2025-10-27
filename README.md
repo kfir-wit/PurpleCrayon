@@ -51,6 +51,17 @@ uv run python -m main --mode clone \
   --format png --style photorealistic \
   --similarity-threshold 0.7 --max-images 5
 
+# Augment mode - modify existing images with AI
+uv run python -m main --mode augment \
+  --input "./assets/ai/image.jpg" \
+  --augment "add sunset background"
+
+# Augment with custom parameters
+uv run python -m main --mode augment \
+  --input "./assets/ai/portrait.jpg" \
+  --augment "add professional studio lighting" \
+  --width 1920 --height 1080 --format png
+
 # Sort and update catalog in assets/ directory
 uv run python -m main --sort-catalog
 
@@ -82,6 +93,9 @@ uv run python examples/clone_example.py
 
 # Simple clone using AssetRequest approach
 uv run python examples/simple_clone_assetrequest_example.py
+
+# Augment existing images with AI modifications
+uv run python examples/augment_example.py
 ```
 
 Each script creates an `example_assets/` workspace so it does not interfere with the curated `assets/` directory. Scraping demos are also available:
@@ -126,6 +140,14 @@ clone_result = await crayon.clone_async(
     height=1024,
     style="photorealistic"
 )
+
+# Augment existing images with AI modifications
+augment_result = await crayon.augment_async(
+    image_path="./assets/ai/image.jpg",
+    prompt="add sunset background",
+    width=1920,
+    height=1080
+)
 ```
 
 - Output locations when installed:
@@ -151,6 +173,7 @@ The agent creates organized folders for easy selection:
 - `downloads/downloaded/` - Images scraped from URLs (scrape mode)
 - `downloads/final/` - Processed images ready for use (resized to your specs)
 - `assets/cloned/` - Royalty-free alternatives created from existing images (clone mode)
+- `assets/ai/` - Augmented images with AI modifications (augment mode)
 
 This lets you compare stock photos vs AI-generated options vs cloned alternatives and choose your favorite!
 
@@ -166,6 +189,7 @@ assets/
 ├── stock/          # Your curated stock photos
 ├── ai/             # Your curated AI-generated images  
 ├── cloned/         # Your curated royalty-free alternatives
+├── augmented/      # Your curated augmented images
 ├── proprietary/    # Customer-provided images
 └── downloaded/     # Your curated scraped images
 ```
@@ -221,6 +245,45 @@ uv run python -m main --mode clone \
 uv run python -m main --mode clone \
   --source "./assets/downloaded/" \
   --similarity-threshold 0.6 --max-images 10
+```
+
+## Augment Mode
+
+Use `--mode augment` to modify existing images using AI image-to-image generation:
+- **AI Vision Analysis**: Uses Gemini Vision API to analyze source images and generate detailed descriptions
+- **Image Upload**: Uploads actual image files to AI engines (Gemini or Replicate)
+- **Modification Prompts**: Natural language instructions for changes (add elements, change style, etc.)
+- **Style Preservation**: Maintains original composition while applying modifications
+- **Batch Processing**: Augment multiple images from a directory
+- **Output Location**: Saves augmented images to `assets/ai/` directory
+- **Catalog Integration**: Augmented files are categorized as "ai" source with "gemini" or "replicate" provider
+
+### Augment Parameters:
+- `--input`: Path to source image file (required)
+- `--augment`: Modification prompt (required)
+- `--width`: Desired width for augmented images
+- `--height`: Desired height for augmented images  
+- `--format`: Output format (png, jpg, webp, etc.)
+- `--output`: Custom output directory (optional)
+
+### Examples:
+```bash
+# Augment single image
+uv run python -m main --mode augment \
+  --input "./assets/ai/portrait.jpg" \
+  --augment "add professional studio lighting"
+
+# Augment with custom dimensions and style
+uv run python -m main --mode augment \
+  --input "./assets/ai/image.jpg" \
+  --augment "convert to watercolor painting style" \
+  --width 1920 --height 1080 --format png
+
+# Augment with custom output directory
+uv run python -m main --mode augment \
+  --input "./assets/ai/image.jpg" \
+  --augment "add magical forest background" \
+  --output "./custom_output"
 ```
 
 ## Sort Catalog Mode

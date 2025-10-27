@@ -16,6 +16,9 @@ Clone Functionality:
 - simple_clone_assetrequest_example.py: AssetRequest-based cloning
 - test_image_to_image.py: Image-to-image generation testing
 
+Augmentation Functionality:
+- augment_example.py: Image modification and augmentation examples
+
 API Examples:
 - api_example.py: Package API usage examples
 

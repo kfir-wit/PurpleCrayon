@@ -62,6 +62,14 @@ Example Usage:
         style="photorealistic"
     )
     
+    # Augment existing images with AI modifications
+    augment_result = await crayon.augment_async(
+        image_path="./assets/ai/image.jpg",
+        prompt="add a sunset background",
+        width=1920,
+        height=1080
+    )
+    
     # Clean up and organize assets
     cleanup_result = crayon.cleanup_assets(remove_junk=True)
     
@@ -103,6 +111,10 @@ from .tools.clone_image_tools import (
     check_similarity,
     is_sufficiently_different,
 )
+from .tools.image_augmentation_tools import (
+    augment_image,
+    augment_images_from_directory,
+)
 from .services.image_service import ImageService
 
 __version__ = "0.1.0"
@@ -142,6 +154,10 @@ __all__ = [
     "describe_image_for_regeneration",
     "check_similarity",
     "is_sufficiently_different",
+    
+    # Image augmentation
+    "augment_image",
+    "augment_images_from_directory",
     
     # Services
     "ImageService",

@@ -91,7 +91,24 @@ Create royalty-free alternatives to existing images using AI.
 
 **Documentation:** [CLONE_API.md](CLONE_API.md)
 
-### 6. **Catalog API** - Asset Management
+### 6. **Augment API** - Image Modification
+Modify existing images using AI image-to-image generation.
+
+**Use Cases:**
+- Adding elements to existing images
+- Changing style or mood
+- Modifying specific visual elements
+- Enhancing or transforming images
+
+**Key Features:**
+- Direct image upload to AI engines
+- Natural language modification prompts
+- Style preservation during modification
+- Multiple engine support with fallback
+
+**Documentation:** [AUGMENT_API.md](AUGMENT_API.md)
+
+### 7. **Catalog API** - Asset Management
 Comprehensive asset catalog management and organization.
 
 **Use Cases:**
@@ -171,6 +188,9 @@ uv run python -m main --mode scrape --url "https://example.com"
 # Clone images for alternatives
 uv run python -m main --mode clone --source "./assets/downloaded/image.jpg"
 
+# Augment existing images
+uv run python -m main --mode augment --input "./assets/ai/image.jpg" --augment "add sunset background"
+
 # Manage catalog
 uv run python -m main --sort-catalog
 uv run python -m main --cleanup
@@ -189,6 +209,7 @@ Main client class providing unified access to all functionality.
 - `fetch()` / `fetch_async()` - Fetch stock photos
 - `scrape()` / `scrape_async()` - Scrape website images
 - `clone()` / `clone_async()` - Clone images
+- `augment()` / `augment_async()` - Augment images
 - `sort_catalog()` - Manage asset catalog
 - `cleanup_assets()` - Clean up assets
 
@@ -376,6 +397,12 @@ scrape_result = crayon.scrape("https://business-photos.com")
 # Clone specific images
 clone_result = await crayon.clone_async("./assets/downloaded/meeting.jpg")
 
+# Augment existing images
+augment_result = await crayon.augment_async(
+    image_path="./assets/ai/portrait.jpg",
+    prompt="add professional studio lighting"
+)
+
 # Organize and clean up
 catalog_result = crayon.sort_catalog()
 cleanup_result = crayon.cleanup_assets()
@@ -384,6 +411,7 @@ print(f"Found {len(result.images)} total images")
 print(f"Generated {len(ai_result.images)} AI images")
 print(f"Scraped {len(scrape_result.images)} reference images")
 print(f"Cloned {len(clone_result.images)} alternatives")
+print(f"Augmented {len(augment_result.images)} images")
 ```
 
 ## Support and Documentation

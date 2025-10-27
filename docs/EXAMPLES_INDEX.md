@@ -22,6 +22,9 @@ This document provides a comprehensive index of all available examples in the Pu
 - **[simple_clone_example.py](../examples/simple_clone_example.py)**: Basic text-to-image cloning
 - **[simple_clone_assetrequest_example.py](../examples/simple_clone_assetrequest_example.py)**: AssetRequest-based cloning
 
+### Image Augmentation
+- **[augment_example.py](../examples/augment_example.py)**: Image modification and augmentation examples
+
 ### Asset Management
 - **[catalog_example.py](../examples/catalog_example.py)**: Asset catalog management and organization
 
@@ -139,7 +142,44 @@ result = crayon.scrape(
 uv run python examples/scrape_comparison.py https://wordpress.org/showcase/
 ```
 
-### 4. **Image Cloning Examples**
+### 4. **Image Augmentation Examples**
+
+#### augment_example.py
+**Purpose**: Demonstrate image modification and augmentation
+**Key Features**:
+- Single image augmentation
+- Different modification types (add elements, change background, etc.)
+- Both PurpleCrayon class and direct tool usage
+- Error handling and validation
+- Synchronous and asynchronous examples
+
+**Usage**:
+```bash
+uv run python examples/augment_example.py
+```
+
+**Code Highlights**:
+```python
+# Augment with PurpleCrayon class
+result = await crayon.augment_async(
+    image_path="./assets/ai/portrait.jpg",
+    prompt="add professional studio lighting",
+    width=1920,
+    height=1080,
+    format="png"
+)
+
+# Direct tool usage
+result = await augment_image(
+    image_path="./image.jpg",
+    prompt="add sunset background",
+    width=1920,
+    height=1080,
+    output_format="png"
+)
+```
+
+### 5. **Image Cloning Examples**
 
 #### clone_example.py
 **Purpose**: Comprehensive image cloning demonstration
@@ -190,7 +230,7 @@ uv run python examples/simple_clone_example.py
 uv run python examples/simple_clone_assetrequest_example.py
 ```
 
-### 5. **Asset Management Examples**
+### 6. **Asset Management Examples**
 
 #### catalog_example.py
 **Purpose**: Asset catalog management demonstration
@@ -220,7 +260,7 @@ results = catalog.search_assets(
 export_paths = catalog.export_catalog(format="both")
 ```
 
-### 6. **Complete Workflow Examples**
+### 7. **Complete Workflow Examples**
 
 #### source_example.py
 **Purpose**: End-to-end sourcing workflow
@@ -304,6 +344,9 @@ uv run python examples/scrape_example.py https://example.com
 
 # Image Cloning
 uv run python examples/clone_example.py
+
+# Image Augmentation
+uv run python examples/augment_example.py
 
 # Asset Management
 uv run python examples/catalog_example.py

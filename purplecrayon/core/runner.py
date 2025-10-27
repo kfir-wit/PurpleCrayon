@@ -8,6 +8,7 @@ from ..services.image_service import ImageService
 from ..tools.asset_management_tools import AssetCatalog
 from ..tools.image_renaming_tools import scan_and_rename_assets
 from ..tools.clone_image_tools import clone_image, clone_images_from_directory
+from ..tools.image_augmentation_tools import augment_image, augment_images_from_directory
 
 
 class PurpleCrayon:
@@ -355,6 +356,126 @@ class PurpleCrayon:
                 max_images=max_images
             ))
         raise RuntimeError("PurpleCrayon.clone() cannot be used inside an active event loop. Use await PurpleCrayon.clone_async(...) instead.")
+    
+    async def augment_async(
+        self,
+        image_path: str | Path,
+        prompt: str,
+        *,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        format: Optional[str] = None,
+        output_dir: Optional[str | Path] = None,
+        **kwargs
+    ) -> OperationResult:
+        """
+        Augment an existing image using AI image-to-image generation.
+        
+        Args:
+            image_path: Path to the source image
+            prompt: Modification instructions
+            width: Optional output width
+            height: Optional output height
+            format: Output format (if None, uses original format)
+            output_dir: Optional custom output directory
+            **kwargs: Additional parameters
+            
+        Returns:
+            OperationResult containing the augmented image
+        """
+        try:
+            # Determine output directory
+            if output_dir is None:
+                output_dir = self.assets_dir / "ai"
+            else:
+                output_dir = Path(output_dir)
+                
+            # Determine output format
+            if format is None:
+                format = Path(image_path).suffix[1:] or "png"
+                
+            # Augment the image
+            result = await augment_image(
+                image_path=image_path,
+                prompt=prompt,
+                width=width,
+                height=height,
+                output_format=format,
+                output_dir=output_dir,
+                **kwargs
+            )
+            
+            if result.success:
+                # Create ImageResult for the augmented image
+                augmented_image = ImageResult(
+                    path=result.data["output_path"],
+                    source="ai",
+                    provider=result.data["provider"],
+                    width=result.data["width"],
+                    height=result.data["height"],
+                    format=result.data["format"],
+                    description=f"Augmented: {prompt}",
+                    match_score=None
+                )
+                
+                return OperationResult(
+                    success=True,
+                    message=f"Successfully augmented image: {result.data['output_path']}",
+                    images=[augmented_image]
+                )
+            else:
+                return OperationResult(
+                    success=False,
+                    message=f"Failed to augment image: {result.message}",
+                    images=[]
+                )
+                
+        except Exception as e:
+            return OperationResult(
+                success=False,
+                message=f"Augment operation failed: {str(e)}",
+                images=[]
+            )
+    
+    def augment(
+        self,
+        image_path: str | Path,
+        prompt: str,
+        *,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        format: Optional[str] = None,
+        output_dir: Optional[str | Path] = None,
+        **kwargs
+    ) -> OperationResult:
+        """
+        Augment an existing image synchronously (wrapper around augment_async).
+        
+        Args:
+            image_path: Path to the source image
+            prompt: Modification instructions
+            width: Optional output width
+            height: Optional output height
+            format: Output format (if None, uses original format)
+            output_dir: Optional custom output directory
+            **kwargs: Additional parameters
+            
+        Returns:
+            OperationResult containing the augmented image
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(self.augment_async(
+                image_path=image_path,
+                prompt=prompt,
+                width=width,
+                height=height,
+                format=format,
+                output_dir=output_dir,
+                **kwargs
+            ))
+        raise RuntimeError("PurpleCrayon.augment() cannot be used inside an active event loop. Use await PurpleCrayon.augment_async(...) instead.")
     
     async def _source_async(self, request: AssetRequest) -> List[ImageResult]:
         """Async implementation of source method."""

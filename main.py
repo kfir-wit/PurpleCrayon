@@ -8,7 +8,7 @@ from purplecrayon import OperationResult, PurpleCrayon, markdownRequest
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="PurpleCrayon AI Graphics Agent")
-    parser.add_argument("--mode", default="full", choices=["full", "search", "generate", "process", "benchmark", "scrape", "clone"], help="Run mode")
+    parser.add_argument("--mode", default="full", choices=["full", "search", "generate", "process", "benchmark", "scrape", "clone", "augment"], help="Run mode")
     parser.add_argument("--url", help="URL to scrape (required for scrape mode)")
     parser.add_argument("--source", help="Source image file or directory to clone (required for clone mode)")
     parser.add_argument("--width", type=int, help="Width for cloned images")
@@ -18,6 +18,9 @@ def main() -> None:
     parser.add_argument("--guidance", help="Additional guidance for image generation")
     parser.add_argument("--similarity-threshold", type=float, default=0.7, help="Maximum similarity threshold (0.0-1.0)")
     parser.add_argument("--max-images", type=int, help="Maximum number of images to process (for directory input)")
+    parser.add_argument("--augment", help="Modification prompt for augment mode (required for augment mode)")
+    parser.add_argument("--input", help="Input image file for augment mode (required for augment mode)")
+    parser.add_argument("--output", help="Output directory for augmented images (optional)")
     parser.add_argument("--sort-catalog", action="store_true", help="Sort and update catalog in assets/ directory")
     parser.add_argument("--cleanup", action="store_true", help="Clean up corrupted and junk images")
     parser.add_argument("--keep-junk", action="store_true", help="Keep junk files when cleaning (only remove corrupted)")
@@ -95,6 +98,22 @@ def main() -> None:
         print("Example: uv run python -m main --mode clone --source './assets/downloaded/' --max-images 5")
         return
     
+    # Validate augment mode
+    if args.mode == "augment":
+        if not args.augment:
+            print("❌ Error: --augment is required for augment mode")
+            print("Example: uv run python -m main --mode augment --input './assets/image.jpg' --augment 'add a sunset background'")
+            return
+        if not args.input:
+            print("❌ Error: --input is required for augment mode")
+            print("Example: uv run python -m main --mode augment --input './assets/image.jpg' --augment 'add a sunset background'")
+            return
+        # Validate input image exists
+        input_path = Path(args.input)
+        if not input_path.exists():
+            print(f"❌ Error: Input image not found: {input_path}")
+            return
+    
     # Handle scrape mode
     if args.mode == "scrape":
         result = crayon.scrape(args.url)
@@ -117,6 +136,22 @@ def main() -> None:
             max_images=args.max_images
         )
         print_operation_result(result, "Clone")
+        return
+    
+    # Handle augment mode
+    if args.mode == "augment":
+        print("🎨 Augmenting image...")
+        print("=" * 50)
+        
+        result = crayon.augment(
+            image_path=args.input,
+            prompt=args.augment,
+            width=args.width,
+            height=args.height,
+            format=args.format,
+            output_dir=args.output
+        )
+        print_operation_result(result, "Augment")
         return
     
     # Handle other modes using prompt file
