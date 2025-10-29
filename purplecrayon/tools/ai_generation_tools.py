@@ -11,7 +11,80 @@ from ..utils.config import get_env
 from ..models.generation_models import model_manager, ModelConfig, ModelProvider
 
 
-def _generate_with_imagen_sync(prompt: str, **params: Any) -> Dict[str, Any]:
+def _analyze_replicate_output(output) -> Dict[str, Any]:
+    """Analyze Replicate output and determine how to parse it."""
+    analysis = {
+        "type": type(output).__name__,
+        "is_iterable": hasattr(output, '__iter__') and not isinstance(output, str),
+        "is_string": isinstance(output, str),
+        "has_url": False,
+        "has_image_data": False,
+        "url": None,
+        "image_data": None,
+        "items_count": 0,
+        "item_types": [],
+        "recommended_action": "unknown"
+    }
+    
+    print(f"🔍 Analyzing Replicate output: {analysis['type']}")
+    
+    if analysis["is_string"]:
+        if output.startswith(('http://', 'https://')):
+            analysis["has_url"] = True
+            analysis["url"] = output
+            analysis["recommended_action"] = "use_url"
+            print(f"   → String URL detected: {output[:50]}...")
+        else:
+            analysis["recommended_action"] = "error"
+            print(f"   → Non-URL string: {output[:50]}...")
+    
+    elif analysis["is_iterable"]:
+        try:
+            output_list = list(output)
+            analysis["items_count"] = len(output_list)
+            print(f"   → Iterable with {len(output_list)} items")
+            
+            # Analyze each item
+            for i, item in enumerate(output_list):
+                item_type = type(item).__name__
+                analysis["item_types"].append(item_type)
+                
+                if isinstance(item, str) and item.startswith(('http://', 'https://')):
+                    analysis["has_url"] = True
+                    analysis["url"] = item
+                    print(f"   → Item {i}: URL ({item[:50]}...)")
+                elif isinstance(item, bytes) and len(item) > 100:
+                    # Check if it looks like image data
+                    if (item.startswith(b'RIFF') or item.startswith(b'\x89PNG') or 
+                        item.startswith(b'\xff\xd8\xff') or item.startswith(b'GIF')):
+                        analysis["has_image_data"] = True
+                        analysis["image_data"] = item
+                        print(f"   → Item {i}: Image data ({len(item)} bytes, {item[:4]})")
+                    else:
+                        print(f"   → Item {i}: Binary data ({len(item)} bytes, {item[:4]})")
+                else:
+                    print(f"   → Item {i}: {item_type} ({len(item) if hasattr(item, '__len__') else 'N/A'})")
+            
+            # Determine recommended action
+            if analysis["has_url"]:
+                analysis["recommended_action"] = "use_url"
+            elif analysis["has_image_data"]:
+                analysis["recommended_action"] = "use_image_data"
+            else:
+                analysis["recommended_action"] = "error"
+                
+        except Exception as e:
+            print(f"   → Error analyzing iterable: {e}")
+            analysis["recommended_action"] = "error"
+    
+    else:
+        print(f"   → Unexpected type: {analysis['type']}")
+        analysis["recommended_action"] = "error"
+    
+    return analysis
+
+
+def _generate_with_replicate_sync(prompt: str, **params: Any) -> Dict[str, Any]:
     """Blocking Replicate call executed inside a worker thread."""
     token = get_env("REPLICATE_API_TOKEN")
     if not token:
@@ -30,26 +103,30 @@ def _generate_with_imagen_sync(prompt: str, **params: Any) -> Dict[str, Any]:
             print(f"🔄 Trying Replicate model: {model}")
             output = replicate.run(model, input=input_payload)
             
-            # replicate.run may return generator/iterator; collect URLs
-            if isinstance(output, str):
-                urls = [output]
-            else:
-                urls = list(output)
-            url = urls[-1] if urls else None
+            # Analyze the output first
+            analysis = _analyze_replicate_output(output)
             
-            if url:
-                # Check if it's a valid URL string or binary data
-                if isinstance(url, str) and url.startswith(('http://', 'https://')):
-                    print(f"✅ Model {model} succeeded, URL: {url[:50]}...")
-                    return {"status": "succeeded", "url": url, "all": urls, "model": model}
-                elif isinstance(url, bytes):
-                    # Replicate returned binary image data directly
-                    print(f"✅ Model {model} succeeded, returned binary data: {len(url)} bytes")
-                    return {"status": "succeeded", "image_data": url, "all": urls, "model": model}
-                else:
-                    print(f"⚠️ Model {model} returned unexpected data type: {type(url)}")
+            # Handle based on analysis
+            if analysis["recommended_action"] == "use_url":
+                print(f"✅ Model {model} succeeded, URL: {analysis['url'][:50]}...")
+                return {
+                    "status": "succeeded", 
+                    "url": analysis["url"], 
+                    "model": model,
+                    "analysis": analysis
+                }
+            elif analysis["recommended_action"] == "use_image_data":
+                print(f"✅ Model {model} succeeded, image data: {len(analysis['image_data'])} bytes")
+                return {
+                    "status": "succeeded", 
+                    "image_data": analysis["image_data"], 
+                    "model": model,
+                    "analysis": analysis
+                }
             else:
-                print(f"⚠️ Model {model} returned no URL")
+                print(f"⚠️ Model {model} analysis failed: {analysis['recommended_action']}")
+                print(f"   Analysis: {analysis}")
+                
         except Exception as e:
             print(f"⚠️ Model {model} failed: {str(e)}")
             continue
@@ -57,9 +134,9 @@ def _generate_with_imagen_sync(prompt: str, **params: Any) -> Dict[str, Any]:
     return {"status": "failed", "reason": "All Replicate models failed"}
 
 
-async def generate_with_imagen(prompt: str, **params: Any) -> Dict[str, Any]:
-    """Run Imagen generation without blocking the event loop."""
-    return await asyncio.to_thread(_generate_with_imagen_sync, prompt, **params)
+async def generate_with_replicate_async(prompt: str, **params: Any) -> Dict[str, Any]:
+    """Run Replicate generation without blocking the event loop."""
+    return await asyncio.to_thread(_generate_with_replicate_sync, prompt, **params)
 
 
 def generate_with_gemini(prompt: str, aspect_ratio: str = "1:1", **params: Any) -> Dict[str, Any]:
@@ -228,8 +305,8 @@ def generate_with_replicate(prompt: str, aspect_ratio: str = "1:1", **params: An
         import requests
         import base64
         
-        # Use the existing Imagen function
-        result = _generate_with_imagen_sync(prompt, **params)
+        # Use the existing Replicate function
+        result = _generate_with_replicate_sync(prompt, **params)
         
         if result.get("status") != "succeeded":
             return result

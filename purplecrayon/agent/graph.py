@@ -17,7 +17,7 @@ from ..tools.image_renaming_tools import rename_images_in_directory, scan_and_re
 from ..tools.asset_curation_tools import curate_downloads_to_assets
 from ..tools.image_validation_tools import validate_all_images
 from ..tools.search_tools import serper_search
-from ..tools.ai_generation_tools import generate_with_imagen, generate_with_gemini_async
+from ..tools.ai_generation_tools import generate_with_replicate_async, generate_with_gemini_async
 from ..tools.image_processing_tools import convert_image, resize_image
 from ..utils.config import (
     INPUT_PROMPT_PATH,
@@ -206,7 +206,7 @@ async def node_generate(state: GraphicsAgentState) -> GraphicsAgentState:
     if not gen:
         print("🖼️ Trying Imagen...")
         try:
-            im = await generate_with_imagen(description)
+            im = await generate_with_replicate_async(description)
             print(f"🔍 Imagen result: {im.get('status')}")
             if im.get("url"):
                 print("✅ Imagen generated image successfully!")

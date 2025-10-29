@@ -5,7 +5,7 @@ import asyncio
 from ..core.types import AssetRequest, ImageResult
 from ..tools.asset_management_tools import AssetCatalog
 from ..tools.stock_photo_tools import search_unsplash, search_pexels, search_pixabay
-from ..tools.ai_generation_tools import generate_with_gemini_async, generate_with_imagen
+from ..tools.ai_generation_tools import generate_with_gemini_async, generate_with_replicate_async
 from ..tools.scraping_tools import scrape_with_engine, scrape_with_fallback, scrape_website_comprehensive
 from ..tools.smart_selection_tools import select_best_images, extract_size_from_prompt
 from ..tools.file_tools import download_file
@@ -200,7 +200,7 @@ class ImageService:
         # Generate with Imagen
         if provider_allowed("imagen", "ai"):
             try:
-                imagen_result = await generate_with_imagen(request.description)
+                imagen_result = await generate_with_replicate_async(request.description)
                 if imagen_result.get("status") in {"success", "succeeded"}:
                     results.append(self._dict_to_image_result(imagen_result, "ai", "imagen"))
             except Exception as e:
