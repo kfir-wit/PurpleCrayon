@@ -46,16 +46,15 @@ def generate_with_gemini(prompt: str, aspect_ratio: str = "1:1", **params: Any) 
     Returns:
         Dict with status, image data, and metadata
     """
-    # Check for both GEMINI_API_KEY and GOOGLE_API_KEY (prefer GEMINI_API_KEY)
-    api_key = get_env("GEMINI_API_KEY") or get_env("GOOGLE_API_KEY")
-    if get_env("GEMINI_API_KEY") and get_env("GOOGLE_API_KEY"):
-        print("Both GEMINI_API_KEY and GOOGLE_API_KEY are set. Using GEMINI_API_KEY.")
+    # Check for GEMINI_API_KEY
+    api_key = get_env("GEMINI_API_KEY")
     if not api_key:
-        return {"status": "skipped", "reason": "GEMINI_API_KEY or GOOGLE_API_KEY missing"}
+        return {"status": "skipped", "reason": "GEMINI_API_KEY missing"}
     
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        # Use image generation model for text-to-image
+        model = genai.GenerativeModel('gemini-2.5-flash-image')
         
         # Configure aspect ratio if provided
         generation_config = None
@@ -121,12 +120,10 @@ def generate_with_gemini_image_to_image(prompt: str, source_image_path: str, asp
     Returns:
         Dict with status, image data, and metadata
     """
-    # Check for both GEMINI_API_KEY and GOOGLE_API_KEY (prefer GEMINI_API_KEY)
-    api_key = get_env("GEMINI_API_KEY") or get_env("GOOGLE_API_KEY")
-    if get_env("GEMINI_API_KEY") and get_env("GOOGLE_API_KEY"):
-        print("Both GEMINI_API_KEY and GOOGLE_API_KEY are set. Using GEMINI_API_KEY.")
+    # Check for GEMINI_API_KEY
+    api_key = get_env("GEMINI_API_KEY")
     if not api_key:
-        return {"status": "skipped", "reason": "GEMINI_API_KEY or GOOGLE_API_KEY missing"}
+        return {"status": "skipped", "reason": "GEMINI_API_KEY missing"}
     
     try:
         from pathlib import Path
@@ -150,7 +147,8 @@ def generate_with_gemini_image_to_image(prompt: str, source_image_path: str, asp
             mime_type = "image/gif"
         
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        # Use image generation model for image-to-image
+        model = genai.GenerativeModel('gemini-2.5-flash-image')
         
         # Create the content with both text and image
         # For Gemini, we need to use the proper Content structure

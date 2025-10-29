@@ -1,6 +1,6 @@
 [project]
 name = "purplecrayon"
-version = "0.1.3"
+version = "0.1.4"
 description = "AI graphics sourcing and generation toolkit with image cloning for royalty-free alternatives"
 readme = "README.md"
 requires-python = ">=3.12"
