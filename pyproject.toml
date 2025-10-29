@@ -1,6 +1,6 @@
 [project]
 name = "purplecrayon"
-version = "0.1.4"
+version = "0.1.5"
 description = "AI graphics sourcing and generation toolkit with image cloning for royalty-free alternatives"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -33,4 +33,30 @@ package-dir = {"" = "."}
 [tool.setuptools.packages.find]
 include = ["purplecrayon*"]
 exclude = ["tests*", "examples*", "assets*", "downloads*", "processed*", "originals*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "integration: Integration tests requiring API keys",
+    "slow: Slow running tests",
+    "api_gemini: Tests requiring Gemini API key",
+    "api_replicate: Tests requiring Replicate API key",
+    "api_unsplash: Tests requiring Unsplash API key",
+    "api_pexels: Tests requiring Pexels API key",
+    "api_pixabay: Tests requiring Pixabay API key",
+    "api_firecrawl: Tests requiring Firecrawl API key",
+]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
 

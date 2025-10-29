@@ -23,6 +23,12 @@ Key Functions:
     
     # AI Generation
     generate_with_gemini: Generate images using Google Gemini
+    generate_with_models: Unified model API for image generation (sync)
+    generate_with_models_async: Unified model API for image generation (async)
+    generate_with_replicate: Generate images using Replicate (sync)
+    generate_with_replicate_async: Generate images using Replicate (async)
+    list_available_models: List available AI models by type
+    check_model_updates: Check for model configuration updates
     
     # Stock Photo Fetching
     search_unsplash: Search Unsplash for stock photos
@@ -103,7 +109,15 @@ from .tools.scraping_tools import (
     scrape_with_fallback,
 )
 from .tools.image_renaming_tools import scan_and_rename_assets
-from .tools.ai_generation_tools import generate_with_gemini
+from .tools.ai_generation_tools import (
+    generate_with_gemini,
+    generate_with_models,
+    generate_with_models_async,
+    generate_with_replicate,
+    generate_with_replicate_async,
+    list_available_models,
+    check_model_updates,
+)
 from .tools.clone_image_tools import (
     clone_image,
     clone_images_from_directory,
@@ -144,6 +158,12 @@ __all__ = [
     
     # AI generation
     "generate_with_gemini",
+    "generate_with_models",
+    "generate_with_models_async", 
+    "generate_with_replicate",
+    "generate_with_replicate_async",
+    "list_available_models",
+    "check_model_updates",
     
     # File management
     "scan_and_rename_assets",
