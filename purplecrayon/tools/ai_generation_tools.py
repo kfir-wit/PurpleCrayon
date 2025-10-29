@@ -328,17 +328,36 @@ def generate_with_replicate(prompt: str, aspect_ratio: str = "1:1", **params: An
             return {"status": "failed", "reason": f"Image data too small: {len(image_data)} bytes"}
         
         # Check if it's a valid image by looking for common image headers
-        if not (image_data.startswith(b'\x89PNG') or image_data.startswith(b'\xff\xd8\xff') or image_data.startswith(b'GIF')):
-            return {"status": "failed", "reason": f"Data doesn't appear to be a valid image"}
+        # Replicate can return PNG, JPEG, GIF, or WebP (WebP starts with RIFF)
+        is_valid_image = (
+            image_data.startswith(b'\x89PNG') or  # PNG
+            image_data.startswith(b'\xff\xd8\xff') or  # JPEG
+            image_data.startswith(b'GIF') or  # GIF
+            image_data.startswith(b'RIFF')  # WebP
+        )
+        if not is_valid_image:
+            return {"status": "failed", "reason": f"Data doesn't appear to be a valid image (first bytes: {image_data[:10]})"}
+        
+        # Determine format from header
+        if image_data.startswith(b'\x89PNG'):
+            format_type = "png"
+        elif image_data.startswith(b'\xff\xd8\xff'):
+            format_type = "jpg"
+        elif image_data.startswith(b'GIF'):
+            format_type = "gif"
+        elif image_data.startswith(b'RIFF'):
+            format_type = "webp"
+        else:
+            format_type = "png"  # Default
         
         return {
             "status": "succeeded",
             "image_data": image_data,
-            "format": "png",  # Replicate typically returns PNG
+            "format": format_type,
             "aspect_ratio": aspect_ratio,
             "provider": "replicate",
             "model": result.get("model", "black-forest-labs/flux-1.1-pro"),
-            "url": result["url"]
+            "url": result.get("url")  # URL might not exist if binary data was returned directly
         }
         
     except Exception as e:

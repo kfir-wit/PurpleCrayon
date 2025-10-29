@@ -14,8 +14,8 @@ from tests.conftest import has_api_key
 class TestStockPhotoAPI:
     """Test stock photo API functions."""
 
-        @pytest.mark.integration
-def test_search_unsplash_not_implemented(self):
+    @pytest.mark.integration
+    def test_search_unsplash_not_implemented(self):
         """Test that search_unsplash function is not yet implemented."""
         # This test will be updated when search_unsplash is implemented
         pytest.skip("search_unsplash function not yet implemented")
@@ -41,8 +41,8 @@ class TestStockPhotoAPIPlaceholders:
 
     @pytest.mark.api_unsplash
     @pytest.mark.skipif(not has_api_key("unsplash"), reason="Unsplash API key not available")
-        @pytest.mark.integration
-def test_search_unsplash_placeholder(self):
+    @pytest.mark.integration
+    def test_search_unsplash_placeholder(self):
         """Placeholder test for Unsplash search functionality - ONE API CALL."""
         # TODO: Implement when search_unsplash function is available
         # Expected test structure:
