@@ -111,7 +111,7 @@ class TestScrapeWithEngine:
             mock_app.scrape.return_value = mock_response
             
             result = scrape_with_engine(
-                url="https://example.com",
+            url="https://example.com",
                 engine="firecrawl",
                 output_dir="./test_assets/downloaded"
             )
@@ -195,7 +195,8 @@ class TestScrapeWithFallback:
         assert mock_scrape.call_count == 2
 
     @patch('purplecrayon.tools.scraping_tools.scrape_with_engine')
-    def test_scrape_with_fallback_all_engines_fail(self, mock_scrape):
+        @pytest.mark.stress
+def test_scrape_with_fallback_all_engines_fail(self, mock_scrape):
         """Test fallback when all engines fail."""
         mock_scrape.return_value = Mock(success=False, message="Engine failed")
         

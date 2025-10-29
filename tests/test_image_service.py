@@ -22,7 +22,8 @@ async def test_search_local_assets_matches_jpg_and_jpeg(tmp_path):
     service = ImageService(assets_dir)
     service.catalog.add_asset(image_path)
 
-    request = AssetRequest(description="sample", format="jpg")
+    request = AssetRequest(
+            query="sample", format="jpg")
     results = await service.search_local_assets(request)
 
     assert len(results) == 1
@@ -50,7 +51,8 @@ async def test_fetch_stock_images_respects_preferred_sources(monkeypatch, tmp_pa
     monkeypatch.setattr("purplecrayon.services.image_service.search_pexels", fake_pexels)
     monkeypatch.setattr("purplecrayon.services.image_service.search_pixabay", fake_pixabay)
 
-    request = AssetRequest(description="test", preferred_sources=["pexels"])
+    request = AssetRequest(
+            query="test", preferred_sources=["pexels"])
     await service.fetch_stock_images(request)
 
     assert calls == {"unsplash": 0, "pexels": 1, "pixabay": 0}
@@ -67,9 +69,10 @@ async def test_generate_ai_images_respects_preferred_sources(monkeypatch, tmp_pa
         raise AssertionError("Imagen should not be invoked when not preferred")
 
     monkeypatch.setattr("purplecrayon.services.image_service.generate_with_gemini_async", fake_gemini)
-    monkeypatch.setattr("purplecrayon.services.image_service.generate_with_imagen", fake_imagen)
+    monkeypatch.setattr("purplecrayon.services.image_service.generate_with_replicate", fake_imagen)
 
-    request = AssetRequest(description="test", preferred_sources=["gemini"])
+    request = AssetRequest(
+            query="test", preferred_sources=["gemini"])
     results = await service.generate_ai_images(request)
 
     assert len(results) == 1

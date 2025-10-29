@@ -25,7 +25,8 @@ async def test_source_async_returns_success(monkeypatch, tmp_path):
 
     monkeypatch.setattr(PurpleCrayon, "_source_async", fake_source_async, raising=False)
 
-    request = AssetRequest(description="test image")
+    request = AssetRequest(
+            query="test image")
     result = await crayon.source_async(request)
 
     assert result.success is True
@@ -35,7 +36,8 @@ async def test_source_async_returns_success(monkeypatch, tmp_path):
 @pytest.mark.asyncio
 async def test_source_sync_raises_inside_event_loop(tmp_path):
     crayon = PurpleCrayon(assets_dir=tmp_path)
-    request = AssetRequest(description="test image")
+    request = AssetRequest(
+            query="test image")
 
     with pytest.raises(RuntimeError, match="Use await PurpleCrayon.source_async"):
         crayon.source(request)

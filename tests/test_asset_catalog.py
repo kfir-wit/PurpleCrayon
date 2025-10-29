@@ -45,6 +45,9 @@ def _create_catalog_with_assets(tmp_path: Path) -> tuple[AssetCatalog, Path]:
 class TestAssetCatalogCreation:
     """Test asset catalog creation and management."""
 
+    @pytest.mark.unit
+
+
     def test_asset_catalog_creation_new(self, tmp_path):
         """Test creating a new asset catalog."""
         catalog_path = tmp_path / "catalog.yaml"
@@ -54,6 +57,9 @@ class TestAssetCatalogCreation:
         assert "assets" in catalog.catalog
         assert "stats" in catalog.catalog
         assert len(catalog.catalog["assets"]) == 0
+
+    @pytest.mark.unit
+
 
     def test_asset_catalog_creation_existing(self, tmp_path):
         """Test loading an existing asset catalog."""
@@ -69,6 +75,7 @@ class TestAssetCatalogCreation:
         catalog2 = AssetCatalog(catalog_path)
         assert catalog2.catalog["stats"]["created"] == "2024-01-01"
 
+    @pytest.mark.unit
     def test_asset_catalog_creation_yaml_format(self, tmp_path):
         """Test catalog creation with YAML format."""
         catalog_path = tmp_path / "catalog.yaml"
@@ -87,7 +94,8 @@ class TestAssetCatalogCreation:
             assert "assets" in data
             assert "stats" in data
 
-    def test_asset_catalog_creation_json_format(self, tmp_path):
+        @pytest.mark.unit
+def test_asset_catalog_creation_json_format(self, tmp_path):
         """Test catalog creation with JSON format."""
         catalog_path = tmp_path / "catalog.json"
         catalog = AssetCatalog(catalog_path)
@@ -164,7 +172,8 @@ class TestAssetCatalogOperations:
         result = catalog.remove_asset(asset_path)
         assert result is False
 
-    def test_scan_and_update_assets_does_not_duplicate_existing_entries(self, tmp_path):
+        @pytest.mark.unit
+def test_scan_and_update_assets_does_not_duplicate_existing_entries(self, tmp_path):
         """Test that scanning doesn't duplicate existing entries."""
         assets_dir = tmp_path / "assets"
         catalog_path = assets_dir / "catalog.yaml"
@@ -185,7 +194,8 @@ class TestAssetCatalogOperations:
         assert len(catalog.catalog["assets"]) == 1
         assert catalog.get_stats() == stats_before
 
-    def test_scan_and_update_assets_adds_new_assets(self, tmp_path):
+        @pytest.mark.unit
+def test_scan_and_update_assets_adds_new_assets(self, tmp_path):
         """Test that scanning adds new assets."""
         assets_dir = tmp_path / "assets"
         catalog_path = assets_dir / "catalog.yaml"
@@ -210,7 +220,8 @@ class TestAssetCatalogOperations:
 class TestCatalogSearch:
     """Test catalog search functionality."""
 
-    def test_search_assets_by_query(self, tmp_path):
+        @pytest.mark.unit
+def test_search_assets_by_query(self, tmp_path):
         """Test searching assets by query string."""
         catalog, assets_dir = _create_catalog_with_assets(tmp_path)
         
@@ -223,7 +234,8 @@ class TestCatalogSearch:
         assert len(results) == 1
         assert results[0]["filename"] == "web_image1.png"
 
-    def test_search_assets_by_source(self, tmp_path):
+        @pytest.mark.unit
+def test_search_assets_by_source(self, tmp_path):
         """Test searching assets by source."""
         catalog, assets_dir = _create_catalog_with_assets(tmp_path)
         
@@ -237,7 +249,8 @@ class TestCatalogSearch:
         cloned_results = catalog.search_assets(source="cloned")
         assert len(cloned_results) == 1
 
-    def test_search_assets_by_format(self, tmp_path):
+        @pytest.mark.unit
+def test_search_assets_by_format(self, tmp_path):
         """Test searching assets by format."""
         catalog, assets_dir = _create_catalog_with_assets(tmp_path)
         
@@ -248,7 +261,8 @@ class TestCatalogSearch:
         jpg_results = catalog.search_assets(format="jpg")
         assert len(jpg_results) == 2  # Should find JPG files
 
-    def test_search_assets_by_size(self, tmp_path):
+        @pytest.mark.unit
+def test_search_assets_by_size(self, tmp_path):
         """Test searching assets by size range."""
         catalog, assets_dir = _create_catalog_with_assets(tmp_path)
         
@@ -260,7 +274,8 @@ class TestCatalogSearch:
         medium_results = catalog.search_assets(min_width=500, max_width=1000)
         assert len(medium_results) >= 1
 
-    def test_search_assets_combined_filters(self, tmp_path):
+        @pytest.mark.unit
+def test_search_assets_combined_filters(self, tmp_path):
         """Test searching assets with combined filters."""
         catalog, assets_dir = _create_catalog_with_assets(tmp_path)
         
@@ -273,7 +288,8 @@ class TestCatalogSearch:
         )
         assert len(results) >= 0  # May or may not find matches
 
-    def test_search_assets_no_results(self, tmp_path):
+        @pytest.mark.unit
+def test_search_assets_no_results(self, tmp_path):
         """Test searching with no results."""
         catalog, assets_dir = _create_catalog_with_assets(tmp_path)
         
@@ -346,7 +362,8 @@ class TestCatalogStatistics:
 class TestCatalogFormats:
     """Test catalog format handling."""
 
-    def test_catalog_yaml_format(self, tmp_path):
+        @pytest.mark.unit
+def test_catalog_yaml_format(self, tmp_path):
         """Test catalog with YAML format."""
         catalog_path = tmp_path / "catalog.yaml"
         catalog = AssetCatalog(catalog_path)
@@ -363,7 +380,8 @@ class TestCatalogFormats:
             assert "assets" in data
             assert "metadata" in data
 
-    def test_catalog_json_format(self, tmp_path):
+        @pytest.mark.unit
+def test_catalog_json_format(self, tmp_path):
         """Test catalog with JSON format."""
         catalog_path = tmp_path / "catalog.json"
         catalog = AssetCatalog(catalog_path)
@@ -380,7 +398,8 @@ class TestCatalogFormats:
             assert "assets" in data
             assert "metadata" in data
 
-    def test_catalog_format_detection(self, tmp_path):
+        @pytest.mark.unit
+def test_catalog_format_detection(self, tmp_path):
         """Test automatic format detection."""
         # Test YAML detection
         yaml_path = tmp_path / "catalog.yaml"
@@ -396,7 +415,8 @@ class TestCatalogFormats:
 class TestScanAndRenameAssets:
     """Test content-based asset renaming."""
 
-    def test_scan_and_rename_assets_basic(self, tmp_path):
+        @pytest.mark.unit
+def test_scan_and_rename_assets_basic(self, tmp_path):
         """Test basic asset renaming functionality."""
         assets_dir = tmp_path / "assets"
         ai_dir = assets_dir / "ai"
@@ -412,7 +432,8 @@ class TestScanAndRenameAssets:
         assert result["success"] is True
         assert result["renamed"] >= 0  # May rename some files based on content
 
-    def test_scan_and_rename_assets_with_ai_detection(self, tmp_path):
+        @pytest.mark.unit
+def test_scan_and_rename_assets_with_ai_detection(self, tmp_path):
         """Test asset renaming with AI detection."""
         assets_dir = tmp_path / "assets"
         ai_dir = assets_dir / "ai"
@@ -435,7 +456,8 @@ class TestScanAndRenameAssets:
             assert result["success"] is True
             mock_llm.assert_called()
 
-    def test_scan_and_rename_assets_error_handling(self, tmp_path):
+        @pytest.mark.unit
+def test_scan_and_rename_assets_error_handling(self, tmp_path):
         """Test asset renaming error handling."""
         assets_dir = tmp_path / "assets"
         ai_dir = assets_dir / "ai"
@@ -454,14 +476,16 @@ class TestScanAndRenameAssets:
 class TestCatalogErrorHandling:
     """Test catalog error handling."""
 
-    def test_catalog_invalid_path(self, tmp_path):
+        @pytest.mark.unit
+def test_catalog_invalid_path(self, tmp_path):
         """Test catalog with invalid path."""
         invalid_path = tmp_path / "nonexistent" / "catalog.yaml"
         
         with pytest.raises(Exception):
             AssetCatalog(invalid_path)
 
-    def test_catalog_corrupted_file(self, tmp_path):
+        @pytest.mark.unit
+def test_catalog_corrupted_file(self, tmp_path):
         """Test catalog with corrupted file."""
         catalog_path = tmp_path / "catalog.yaml"
         catalog_path.write_text("invalid yaml content: [")
@@ -470,7 +494,8 @@ class TestCatalogErrorHandling:
         catalog = AssetCatalog(catalog_path)
         assert catalog.catalog["assets"] == []
 
-    def test_catalog_permission_error(self, tmp_path):
+        @pytest.mark.unit
+def test_catalog_permission_error(self, tmp_path):
         """Test catalog with permission error."""
         catalog_path = tmp_path / "catalog.yaml"
         catalog = AssetCatalog(catalog_path)
@@ -489,7 +514,8 @@ class TestCatalogErrorHandling:
 class TestCatalogIntegration:
     """Test catalog integration scenarios."""
 
-    def test_catalog_workflow_complete(self, tmp_path):
+        @pytest.mark.unit
+def test_catalog_workflow_complete(self, tmp_path):
         """Test complete catalog workflow."""
         assets_dir = tmp_path / "assets"
         catalog_path = assets_dir / "catalog.yaml"
@@ -523,7 +549,8 @@ class TestCatalogIntegration:
         new_catalog = AssetCatalog(catalog_path)
         assert len(new_catalog.catalog["assets"]) == 2
 
-    def test_catalog_with_renaming_integration(self, tmp_path):
+        @pytest.mark.unit
+def test_catalog_with_renaming_integration(self, tmp_path):
         """Test catalog integration with asset renaming."""
         assets_dir = tmp_path / "assets"
         catalog_path = assets_dir / "catalog.yaml"

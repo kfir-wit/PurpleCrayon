@@ -40,7 +40,9 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
+    "unit: Basic unit tests that should run first",
     "integration: Integration tests requiring API keys",
+    "stress: Comprehensive tests for major releases",
     "slow: Slow running tests",
     "api_gemini: Tests requiring Gemini API key",
     "api_replicate: Tests requiring Replicate API key",
@@ -48,12 +50,14 @@ markers = [
     "api_pexels: Tests requiring Pexels API key",
     "api_pixabay: Tests requiring Pixabay API key",
     "api_firecrawl: Tests requiring Firecrawl API key",
+    "depends_on_unit: Integration tests that depend on unit tests passing",
 ]
 addopts = [
     "-v",
     "--tb=short",
     "--strict-markers",
     "--disable-warnings",
+    "--maxfail=1",  # Stop on first failure
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

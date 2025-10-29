@@ -14,7 +14,8 @@ from tests.conftest import has_api_key
 class TestStockPhotoAPI:
     """Test stock photo API functions."""
 
-    def test_search_unsplash_not_implemented(self):
+        @pytest.mark.integration
+def test_search_unsplash_not_implemented(self):
         """Test that search_unsplash function is not yet implemented."""
         # This test will be updated when search_unsplash is implemented
         pytest.skip("search_unsplash function not yet implemented")
@@ -40,11 +41,12 @@ class TestStockPhotoAPIPlaceholders:
 
     @pytest.mark.api_unsplash
     @pytest.mark.skipif(not has_api_key("unsplash"), reason="Unsplash API key not available")
-    def test_search_unsplash_placeholder(self):
+        @pytest.mark.integration
+def test_search_unsplash_placeholder(self):
         """Placeholder test for Unsplash search functionality - ONE API CALL."""
         # TODO: Implement when search_unsplash function is available
         # Expected test structure:
-        # result = search_unsplash("nature", count=1)  # Only 1 image to minimize API usage
+        # result = search_unsplash("nature", max_results=1)  # Only 1 image to minimize API usage
         # assert result["success"] is True
         # assert len(result["images"]) == 1
         # assert "url" in result["images"][0]
@@ -58,7 +60,7 @@ class TestStockPhotoAPIPlaceholders:
         """Placeholder test for Pexels search functionality - ONE API CALL."""
         # TODO: Implement when search_pexels function is available
         # Expected test structure:
-        # result = search_pexels("landscape", count=1)  # Only 1 image to minimize API usage
+        # result = search_pexels("landscape", max_results=1)  # Only 1 image to minimize API usage
         # assert result["success"] is True
         # assert len(result["images"]) == 1
         pytest.skip("search_pexels function not yet implemented")
@@ -69,7 +71,7 @@ class TestStockPhotoAPIPlaceholders:
         """Placeholder test for Pixabay search functionality - ONE API CALL."""
         # TODO: Implement when search_pixabay function is available
         # Expected test structure:
-        # result = search_pixabay("animals", count=1)  # Only 1 image to minimize API usage
+        # result = search_pixabay("animals", max_results=1)  # Only 1 image to minimize API usage
         # assert result["success"] is True
         # assert len(result["images"]) == 1
         pytest.skip("search_pixabay function not yet implemented")
@@ -94,7 +96,7 @@ class TestStockPhotoAPIPlaceholders:
         
         for website, search_term in websites_to_test:
             # Each website gets exactly one API call
-            # result = search_function(search_term, count=1)
+            # result = search_function(search_term, max_results=1)
             # assert result["success"] is True
             # assert len(result["images"]) == 1
             pass
@@ -105,7 +107,7 @@ class TestStockPhotoAPIPlaceholders:
         """Placeholder test for stock photo error handling."""
         # TODO: Implement when stock photo functions are available
         # Expected test structure:
-        # result = search_unsplash("", count=0)  # Invalid parameters
+        # result = search_unsplash("", max_results=0)  # Invalid parameters
         # assert result["success"] is False
         # assert "error" in result["message"]
         pytest.skip("stock photo functions not yet implemented")
@@ -181,7 +183,7 @@ class TestStockPhotoIntegration:
         # crayon = PurpleCrayon(assets_dir=temp_assets_dir)
         # 
         # # Search and download stock photos
-        # result = crayon.fetch_stock_photos("nature", count=5, source="unsplash")
+        # result = crayon.fetch_stock_photos("nature", max_results=5, source="unsplash")
         # assert result.success is True
         # assert len(result.images) == 5
         # 

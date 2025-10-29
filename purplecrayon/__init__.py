@@ -131,7 +131,7 @@ from .tools.image_augmentation_tools import (
 )
 from .services.image_service import ImageService
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 __author__ = "Kfir"
 __description__ = "AI graphics sourcing and generation toolkit"
 

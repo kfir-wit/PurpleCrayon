@@ -1,7 +1,33 @@
 {
-    "python.testing.pytestArgs": [
-        "tests"
-    ],
+    // Python testing configuration
+    "python.testing.pytestEnabled": true,
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    
+    // Pytest configuration
+    "python.testing.pytestArgs": [
+        "-v",
+        "--tb=short",
+        "--maxfail=1"
+    ],
+    
+    // Test discovery
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    
+    // Test execution
+    "python.testing.cwd": "${workspaceFolder}",
+    
+    // Fail-fast configuration
+    "python.testing.pytestPath": "uv",
+    
+    // Custom test tasks
+    "python.testing.pytestEnabled": true,
+    
+    // Terminal configuration for test output
+    "terminal.integrated.scrollback": 10000,
+    
+    // Editor configuration
+    "files.autoSave": "onFocusChange",
+    
+    // Test explorer configuration
+    "python.testing.promptToConfigure": false
 }
