@@ -24,6 +24,7 @@ dependencies = [
     "python-dotenv",
     "pyyaml",
     "replicate",
+    "google-genai>=1.46.0",
 ]
 
 [tool.setuptools]

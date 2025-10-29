@@ -61,7 +61,7 @@ from .scraping_tools import (
 from .image_renaming_tools import scan_and_rename_assets
 
 # AI generation
-from .ai_generation_tools import generate_with_gemini
+from .ai_generation_tools import generate_with_gemini, generate_with_replicate
 
 # Stock photo tools (functions may not be available yet)
 # from .stock_photo_tools import (
@@ -94,6 +94,7 @@ __all__ = [
     
     # AI generation
     "generate_with_gemini",
+    "generate_with_replicate",
     
     # Stock photos (commented out until functions are implemented)
     # "search_stock_photos",

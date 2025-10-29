@@ -12,8 +12,8 @@ import mimetypes
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
+from google import genai
+from google.genai import types
 import replicate
 from PIL import Image
 
@@ -61,14 +61,15 @@ async def augment_image_with_gemini_async(
         if not api_key:
             raise ValueError("GEMINI_API_KEY not set")
             
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash-image')
+        # Use the new Gemini API client
+        client = genai.Client(api_key=api_key)
         
         # Generate augmented image
         print(f"Generating augmented image with Gemini: {prompt}")
         response = await asyncio.to_thread(
-            model.generate_content,
-            [modification_prompt, image]
+            client.models.generate_content,
+            model="gemini-2.5-flash-image",
+            contents=[modification_prompt, image]
         )
         
         if not response or not hasattr(response, 'candidates') or not response.candidates:

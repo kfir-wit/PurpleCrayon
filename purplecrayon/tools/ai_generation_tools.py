@@ -4,8 +4,8 @@ import asyncio
 from typing import Any, Dict
 
 import replicate as replicate_sdk
-import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
+from google import genai
+from google.genai import types
 
 from ..utils.config import get_env
 
@@ -36,7 +36,7 @@ async def generate_with_imagen(prompt: str, **params: Any) -> Dict[str, Any]:
 
 
 def generate_with_gemini(prompt: str, aspect_ratio: str = "1:1", **params: Any) -> Dict[str, Any]:
-    """Use Google Gemini (Nano Banana) for image generation.
+    """Use Google Gemini for image generation.
     
     Args:
         prompt: Text description for image generation
@@ -52,29 +52,22 @@ def generate_with_gemini(prompt: str, aspect_ratio: str = "1:1", **params: Any) 
         return {"status": "skipped", "reason": "GEMINI_API_KEY missing"}
     
     try:
-        genai.configure(api_key=api_key)
-        # Use image generation model for text-to-image
-        model = genai.GenerativeModel('gemini-2.5-flash-image')
+        # Use the new Gemini API client
+        client = genai.Client(api_key=api_key)
         
         # Configure aspect ratio if provided
-        generation_config = None
+        config = None
         if aspect_ratio != "1:1":
-            generation_config = genai.types.GenerationConfig(
-                # Note: aspect_ratio is not directly supported in GenerationConfig
-                # We'll use the prompt to specify aspect ratio instead
-                temperature=0.7,
-                top_p=0.8,
-                top_k=40
+            config = types.GenerateContentConfig(
+                image_config=types.ImageConfig(
+                    aspect_ratio=aspect_ratio,
+                )
             )
         
-        # Add aspect ratio to prompt if specified
-        enhanced_prompt = prompt
-        if aspect_ratio != "1:1":
-            enhanced_prompt = f"{prompt}\n\nAspect ratio: {aspect_ratio}"
-        
-        response = model.generate_content(
-            contents=[enhanced_prompt],
-            generation_config=generation_config
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-image",
+            contents=[prompt],
+            config=config
         )
         
         print(f"🔍 Gemini response: {response}")
@@ -128,42 +121,32 @@ def generate_with_gemini_image_to_image(prompt: str, source_image_path: str, asp
     try:
         from pathlib import Path
         import base64
+        from PIL import Image
+        from io import BytesIO
         
         source_path = Path(source_image_path)
         if not source_path.exists():
             return {"status": "failed", "reason": f"Source image not found: {source_image_path}"}
         
-        # Read and encode the source image
-        with open(source_path, "rb") as f:
-            image_data = f.read()
+        # Use the new Gemini API client
+        client = genai.Client(api_key=api_key)
         
-        # Determine MIME type based on file extension
-        mime_type = "image/jpeg"
-        if source_path.suffix.lower() in ['.png']:
-            mime_type = "image/png"
-        elif source_path.suffix.lower() in ['.webp']:
-            mime_type = "image/webp"
-        elif source_path.suffix.lower() in ['.gif']:
-            mime_type = "image/gif"
+        # Load the image using PIL
+        image = Image.open(source_path)
         
-        genai.configure(api_key=api_key)
-        # Use image generation model for image-to-image
-        model = genai.GenerativeModel('gemini-2.5-flash-image')
+        # Configure aspect ratio if provided
+        config = None
+        if aspect_ratio != "1:1":
+            config = types.GenerateContentConfig(
+                image_config=types.ImageConfig(
+                    aspect_ratio=aspect_ratio,
+                )
+            )
         
-        # Create the content with both text and image
-        # For Gemini, we need to use the proper Content structure
-        contents = [
-            {
-                "text": prompt,
-                "inline_data": {
-                    "mime_type": mime_type,
-                    "data": image_data
-                }
-            }
-        ]
-        
-        response = model.generate_content(
-            contents=contents
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-image",
+            contents=[prompt, image],
+            config=config
         )
         
         print(f"🔍 Gemini image-to-image response: {response}")
@@ -196,3 +179,54 @@ def generate_with_gemini_image_to_image(prompt: str, source_image_path: str, asp
 async def generate_with_gemini_image_to_image_async(prompt: str, source_image_path: str, aspect_ratio: str = "1:1", **params: Any) -> Dict[str, Any]:
     """Async wrapper for Gemini image-to-image generation."""
     return await asyncio.to_thread(generate_with_gemini_image_to_image, prompt, source_image_path, aspect_ratio, **params)
+
+
+def generate_with_replicate(prompt: str, aspect_ratio: str = "1:1", **params: Any) -> Dict[str, Any]:
+    """Use Replicate for image generation.
+    
+    Args:
+        prompt: Text description for image generation
+        aspect_ratio: Aspect ratio (1:1, 16:9, 3:2, etc.)
+        **params: Additional parameters
+    
+    Returns:
+        Dict with status, image data, and metadata
+    """
+    # Check for REPLICATE_API_TOKEN
+    api_key = get_env("REPLICATE_API_TOKEN")
+    if not api_key:
+        return {"status": "skipped", "reason": "REPLICATE_API_TOKEN missing"}
+    
+    try:
+        import requests
+        import base64
+        
+        # Use the existing Imagen function
+        result = _generate_with_imagen_sync(prompt, **params)
+        
+        if result.get("status") != "succeeded" or not result.get("url"):
+            return result
+        
+        # Download the image from the URL
+        response = requests.get(result["url"])
+        response.raise_for_status()
+        
+        image_data = response.content
+        
+        return {
+            "status": "succeeded",
+            "image_data": image_data,
+            "format": "png",  # Replicate typically returns PNG
+            "aspect_ratio": aspect_ratio,
+            "provider": "replicate",
+            "model": params.get("model", "stability-ai/sdxl"),
+            "url": result["url"]
+        }
+        
+    except Exception as e:
+        return {"status": "failed", "reason": str(e)}
+
+
+async def generate_with_replicate_async(prompt: str, aspect_ratio: str = "1:1", **params: Any) -> Dict[str, Any]:
+    """Async wrapper for Replicate image generation."""
+    return await asyncio.to_thread(generate_with_replicate, prompt, aspect_ratio, **params)
