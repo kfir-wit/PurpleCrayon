@@ -55,7 +55,7 @@ async def test_source_async_combines_results(monkeypatch, tmp_path):
     monkeypatch.setattr(crayon.service, "generate_ai_images", fake_ai)
 
     request = AssetRequest(
-            query="test image")
+            description="test image")
     results = await crayon._source_async(request)
 
     assert len(results) == 3
@@ -83,7 +83,7 @@ async def test_fetch_async_returns_operation(monkeypatch, tmp_path):
     monkeypatch.setattr(crayon.service, "fetch_stock_images", fake_fetch)
 
     request = AssetRequest(
-            query="stock image")
+            description="stock image")
     operation = await crayon.fetch_async(request)
 
     assert operation.success is True

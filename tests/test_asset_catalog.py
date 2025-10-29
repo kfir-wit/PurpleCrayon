@@ -76,6 +76,8 @@ class TestAssetCatalogCreation:
         assert catalog2.catalog["stats"]["created"] == "2024-01-01"
 
     @pytest.mark.unit
+
+
     def test_asset_catalog_creation_yaml_format(self, tmp_path):
         """Test catalog creation with YAML format."""
         catalog_path = tmp_path / "catalog.yaml"

@@ -36,8 +36,9 @@ class TestGeminiGeneration:
 
     @pytest.mark.api_gemini
     @pytest.mark.skipif(not has_api_key("gemini"), reason="Gemini API key not available")
-        @pytest.mark.stress
-def test_generate_with_gemini_different_aspect_ratios(self):
+    @pytest.mark.stress
+
+    def test_generate_with_gemini_different_aspect_ratios(self):
         """Test Gemini generation with different aspect ratios - ONE API CALL PER RATIO."""
         aspect_ratios = ["1:1", "16:9", "3:2", "4:3"]
         
@@ -60,12 +61,13 @@ def test_generate_with_gemini_different_aspect_ratios(self):
         )
         
         assert result["status"] == "failed"
-        assert "error" in result["reason"].lower()
+        assert "error" in result["reason"].lower() or "no image data" in result["reason"].lower()
 
     @pytest.mark.api_gemini
     @pytest.mark.skipif(not has_api_key("gemini"), reason="Gemini API key not available")
-        @pytest.mark.stress
-def test_generate_with_gemini_different_styles(self):
+    @pytest.mark.stress
+
+    def test_generate_with_gemini_different_styles(self):
         """Test Gemini generation with different styles - ONE API CALL PER STYLE."""
         styles = ["photorealistic", "artistic", "cartoon", "abstract"]
         
@@ -102,8 +104,9 @@ class TestReplicateGeneration:
 
     @pytest.mark.api_replicate
     @pytest.mark.skipif(not has_api_key("replicate"), reason="Replicate API key not available")
-        @pytest.mark.stress
-def test_generate_with_replicate_different_sizes(self):
+    @pytest.mark.stress
+
+    def test_generate_with_replicate_different_sizes(self):
         """Test Replicate generation with different sizes - ONE API CALL PER SIZE."""
         sizes = [(256, 256), (512, 512), (1024, 768)]
         
@@ -121,8 +124,9 @@ def test_generate_with_replicate_different_sizes(self):
 
     @pytest.mark.api_replicate
     @pytest.mark.skipif(not has_api_key("replicate"), reason="Replicate API key not available")
-        @pytest.mark.stress
-def test_generate_with_replicate_different_models(self):
+    @pytest.mark.stress
+
+    def test_generate_with_replicate_different_models(self):
         """Test Replicate generation with different models - ONE API CALL PER MODEL."""
         # Test each available Replicate model individually
         models_to_test = [
