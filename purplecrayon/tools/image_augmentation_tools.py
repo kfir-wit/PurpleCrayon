@@ -20,6 +20,7 @@ from PIL import Image
 from ..core.types import OperationResult, ImageResult
 from ..utils.config import get_env
 from ..utils.file_utils import safe_save_file
+from ..models.generation_models import model_manager, ModelProvider
 
 
 async def augment_image_with_gemini_async(
@@ -227,7 +228,7 @@ async def _try_augmentation_engines(
     **kwargs
 ) -> tuple[ImageResult, bytes]:
     """
-    Try augmentation engines in order with fallback.
+    Try augmentation engines in order with fallback using model manager.
     
     Args:
         image_path: Path to the source image
@@ -237,18 +238,27 @@ async def _try_augmentation_engines(
     Returns:
         Tuple of (ImageResult, image_data_bytes)
     """
-    engines = [
-        ("Gemini", augment_image_with_gemini_async),
-        ("Replicate", augment_image_with_replicate_async),
-    ]
+    # Get available models for image-to-image generation
+    available_models = model_manager.get_fallback_models(model_type="image_to_image")
+    
+    if not available_models:
+        raise RuntimeError("No available models for image-to-image generation")
     
     last_error = None
     
-    for engine_name, engine_func in engines:
+    for model_config in available_models:
         try:
-            print(f"Trying {engine_name} for image augmentation")
-            result = await engine_func(image_path, prompt, **kwargs)
-            print(f"Successfully augmented image with {engine_name}")
+            print(f"Trying {model_config.display_name} for image augmentation")
+            
+            if model_config.provider == ModelProvider.GEMINI:
+                result = await augment_image_with_gemini_async(image_path, prompt, **kwargs)
+            elif model_config.provider == ModelProvider.REPLICATE:
+                result = await augment_image_with_replicate_async(image_path, prompt, **kwargs)
+            else:
+                print(f"Unknown provider: {model_config.provider}")
+                continue
+            
+            print(f"Successfully augmented image with {model_config.display_name}")
             
             # Create ImageResult from the result dictionary
             image_result = ImageResult(
@@ -265,7 +275,7 @@ async def _try_augmentation_engines(
             return image_result, result["image_data"]
             
         except Exception as e:
-            print(f"{engine_name} augmentation failed: {e}")
+            print(f"{model_config.display_name} augmentation failed: {e}")
             last_error = e
             continue
     

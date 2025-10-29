@@ -1,0 +1,166 @@
+{
+  "version": "1.1.0",
+  "last_updated": "2024-01-15T00:00:00Z",
+  "model_types": {
+    "text_to_image": {
+      "description": "Generate images from text prompts",
+      "use_cases": ["generate", "source"],
+      "fallback_order": ["gemini-flash", "flux-1.1-pro", "stable-diffusion"]
+    },
+    "image_to_image": {
+      "description": "Modify existing images based on text prompts",
+      "use_cases": ["augment"],
+      "fallback_order": ["gemini-flash", "flux-kontext-pro"]
+    },
+    "image_to_text": {
+      "description": "Analyze images to generate text descriptions",
+      "use_cases": ["clone", "analyze"],
+      "fallback_order": ["gemini-vision"]
+    }
+  },
+  "models": {
+    "gemini-flash": {
+      "name": "gemini-flash",
+      "provider": "gemini",
+      "model_id": "gemini-2.5-flash-image",
+      "display_name": "Gemini 2.5 Flash (Nano Banana)",
+      "description": "Google's latest multimodal model with excellent image generation and analysis capabilities",
+      "priority": 1,
+      "enabled": true,
+      "cost_tier": "standard",
+      "max_resolution": "1024x1024",
+      "supported_formats": ["png"],
+      "api_documentation": "https://ai.google.dev/gemini-api/docs/image-generation",
+      "api_key_env": "GEMINI_API_KEY",
+      "capabilities": {
+        "text_to_image": true,
+        "image_to_image": true,
+        "image_to_text": true,
+        "aspect_ratios": ["1:1", "16:9", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "21:9"]
+      },
+      "parameters": {
+        "prompt": "string",
+        "aspect_ratio": "string",
+        "style": "string"
+      }
+    },
+    "gemini-vision": {
+      "name": "gemini-vision",
+      "provider": "gemini",
+      "model_id": "gemini-2.0-flash-exp",
+      "display_name": "Gemini 2.0 Flash (Vision)",
+      "description": "Google's vision model for image analysis and description generation",
+      "priority": 1,
+      "enabled": true,
+      "cost_tier": "standard",
+      "max_resolution": "unlimited",
+      "supported_formats": ["png", "jpg", "jpeg", "webp", "gif"],
+      "api_documentation": "https://ai.google.dev/gemini-api/docs/vision",
+      "api_key_env": "GEMINI_API_KEY",
+      "capabilities": {
+        "text_to_image": false,
+        "image_to_image": false,
+        "image_to_text": true,
+        "aspect_ratios": []
+      },
+      "parameters": {
+        "prompt": "string",
+        "max_tokens": "integer"
+      }
+    },
+    "flux-1.1-pro": {
+      "name": "flux-1.1-pro",
+      "provider": "replicate",
+      "model_id": "black-forest-labs/flux-1.1-pro",
+      "display_name": "FLUX 1.1 Pro",
+      "description": "Faster, better FLUX Pro with excellent image quality and prompt adherence",
+      "priority": 2,
+      "enabled": true,
+      "cost_tier": "standard",
+      "max_resolution": "1024x1024",
+      "supported_formats": ["png", "jpg"],
+      "api_documentation": "https://replicate.com/black-forest-labs/flux-1.1-pro/api",
+      "api_key_env": "REPLICATE_API_TOKEN",
+      "capabilities": {
+        "text_to_image": true,
+        "image_to_image": false,
+        "image_to_text": false,
+        "aspect_ratios": ["1:1", "16:9", "3:2", "4:3", "9:16"]
+      },
+      "parameters": {
+        "prompt": "string",
+        "width": "integer",
+        "height": "integer",
+        "num_inference_steps": "integer",
+        "guidance_scale": "float"
+      }
+    },
+    "flux-kontext-pro": {
+      "name": "flux-kontext-pro",
+      "provider": "replicate",
+      "model_id": "black-forest-labs/flux-kontext-pro",
+      "display_name": "FLUX Kontext Pro",
+      "description": "FLUX model specialized for image-to-image editing and modification",
+      "priority": 2,
+      "enabled": true,
+      "cost_tier": "standard",
+      "max_resolution": "1024x1024",
+      "supported_formats": ["png", "jpg"],
+      "api_documentation": "https://replicate.com/black-forest-labs/flux-kontext-pro/api",
+      "api_key_env": "REPLICATE_API_TOKEN",
+      "capabilities": {
+        "text_to_image": false,
+        "image_to_image": true,
+        "image_to_text": false,
+        "aspect_ratios": ["1:1", "16:9", "3:2", "4:3", "9:16"]
+      },
+      "parameters": {
+        "prompt": "string",
+        "image": "string",
+        "strength": "float",
+        "width": "integer",
+        "height": "integer",
+        "num_inference_steps": "integer",
+        "guidance_scale": "float"
+      }
+    },
+    "stable-diffusion": {
+      "name": "stable-diffusion",
+      "provider": "replicate",
+      "model_id": "stability-ai/stable-diffusion",
+      "display_name": "Stable Diffusion",
+      "description": "Classic Stable Diffusion model, reliable and well-tested",
+      "priority": 3,
+      "enabled": true,
+      "cost_tier": "standard",
+      "max_resolution": "512x512",
+      "supported_formats": ["png", "jpg"],
+      "api_documentation": "https://replicate.com/stability-ai/stable-diffusion/api",
+      "api_key_env": "REPLICATE_API_TOKEN",
+      "capabilities": {
+        "text_to_image": true,
+        "image_to_image": false,
+        "image_to_text": false,
+        "aspect_ratios": ["1:1", "16:9", "3:2", "4:3", "9:16"]
+      },
+      "parameters": {
+        "prompt": "string",
+        "width": "integer",
+        "height": "integer",
+        "num_inference_steps": "integer",
+        "guidance_scale": "float",
+        "negative_prompt": "string"
+      }
+    }
+  },
+  "fallback_order": {
+    "text_to_image": ["gemini-flash", "flux-1.1-pro", "stable-diffusion"],
+    "image_to_image": ["gemini-flash", "flux-kontext-pro"],
+    "image_to_text": ["gemini-vision"]
+  },
+  "update_check": {
+    "enabled": true,
+    "check_interval_hours": 24,
+    "remote_url": "https://raw.githubusercontent.com/kfir-wit/PurpleCrayon/main/purplecrayon/config/models.json"
+  }
+}

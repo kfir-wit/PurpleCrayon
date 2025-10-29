@@ -16,13 +16,14 @@ import base64
 import io
 
 from PIL import Image
-import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
+from google import genai
+from google.genai import types
 
 from ..models.image_result import ImageResult
 from ..models.asset_request import AssetRequest
 from ..utils.config import get_env
 from ..utils.file_utils import safe_save_file
+from ..models.generation_models import model_manager, ModelProvider
 
 
 async def _try_generation_engines(
@@ -32,7 +33,7 @@ async def _try_generation_engines(
     source_image_path: Optional[Path] = None
 ) -> Dict[str, Any]:
     """
-    Try multiple AI generation engines with fallback.
+    Try multiple AI generation engines with fallback using model manager.
     
     Args:
         prompt: Generation prompt
@@ -43,27 +44,41 @@ async def _try_generation_engines(
     Returns:
         Generation result with success status and data
     """
-    engines = [
-        ("replicate", _try_imagen_generation),  # Try Replicate first for image-to-image
-        ("gemini", _try_gemini_generation),
-    ]
+    # Determine model type based on whether source image is provided
+    model_type = "image_to_image" if source_image_path else "text_to_image"
+    
+    # Get available models for the determined type
+    available_models = model_manager.get_fallback_models(model_type=model_type)
+    
+    if not available_models:
+        return {
+            "success": False,
+            "error": f"No available models for {model_type} generation"
+        }
     
     last_error = None
     
-    for engine_name, engine_func in engines:
+    for model_config in available_models:
         try:
-            print(f"🎨 Trying {engine_name} generation engine...")
-            result = await engine_func(prompt, target_width, target_height, source_image_path)
+            print(f"🎨 Trying {model_config.display_name} generation engine...")
+            
+            if model_config.provider == ModelProvider.GEMINI:
+                result = await _try_gemini_generation(prompt, target_width, target_height, source_image_path)
+            elif model_config.provider == ModelProvider.REPLICATE:
+                result = await _try_imagen_generation(prompt, target_width, target_height, source_image_path)
+            else:
+                print(f"⚠️ Unknown provider: {model_config.provider}")
+                continue
             
             if result.get("success"):
-                print(f"✅ {engine_name} generation successful")
+                print(f"✅ {model_config.display_name} generation successful")
                 return result
             else:
-                print(f"⚠️ {engine_name} failed: {result.get('error', 'Unknown error')}")
-                last_error = result.get('error', f'{engine_name} failed')
+                print(f"⚠️ {model_config.display_name} failed: {result.get('error', 'Unknown error')}")
+                last_error = result.get('error', f'{model_config.display_name} failed')
                 
         except Exception as e:
-            print(f"❌ {engine_name} error: {str(e)}")
+            print(f"❌ {model_config.display_name} error: {str(e)}")
             last_error = str(e)
             continue
     
@@ -157,7 +172,7 @@ async def _try_imagen_generation(prompt: str, width: int, height: int, source_im
             image_url = uploaded_image.url if hasattr(uploaded_image, 'url') else str(uploaded_image)
             
             result = client.run(
-                "stability-ai/stable-diffusion:ac732df83cea7fff18b8472768c88ad041fa750ff7682a21affe81863cbe77e2",
+                "black-forest-labs/flux-1.1-pro",
                 input={
                     "prompt": prompt,
                     "init_image": image_url,
@@ -171,7 +186,7 @@ async def _try_imagen_generation(prompt: str, width: int, height: int, source_im
         else:
             print("🎨 Using Replicate text-to-image generation")
             result = client.run(
-                "stability-ai/stable-diffusion:ac732df83cea7fff18b8472768c88ad041fa750ff7682a21affe81863cbe77e2",
+                "black-forest-labs/flux-1.1-pro",
                 input={
                     "prompt": prompt,
                     "width": width,
@@ -293,9 +308,31 @@ async def describe_image_for_regeneration(
         }
     
     try:
-        # Initialize Gemini
-        genai.configure(api_key=get_env("GEMINI_API_KEY"))
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        # Get vision model from model manager
+        vision_models = model_manager.get_models_by_type("image_to_text")
+        if not vision_models:
+            return {
+                "success": False,
+                "error": "No vision models available for image analysis"
+            }
+        
+        # Use the first available vision model (should be Gemini)
+        vision_model = vision_models[0]
+        
+        # Initialize the appropriate client
+        if vision_model.provider == ModelProvider.GEMINI:
+            api_key = get_env("GEMINI_API_KEY")
+            if not api_key:
+                return {
+                    "success": False,
+                    "error": "GEMINI_API_KEY not set"
+                }
+            client = genai.Client(api_key=api_key)
+        else:
+            return {
+                "success": False,
+                "error": f"Unsupported vision model provider: {vision_model.provider}"
+            }
         
         # Convert image to base64
         image_base64 = _get_image_base64(image_path)
@@ -321,18 +358,12 @@ async def describe_image_for_regeneration(
         
         # Generate description
         try:
-            response = model.generate_content([
-                prompt,
-                {
-                    "mime_type": "image/jpeg",
-                    "data": image_base64
-                }
-            ], safety_settings={
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            })
+            # Load image using PIL for the new API
+            image = Image.open(image_path)
+            response = client.models.generate_content(
+                model=vision_model.model_id,
+                contents=[prompt, image]
+            )
             
             # Check if response has content
             if not response:
@@ -522,15 +553,24 @@ async def clone_image(
         print(f"🎨 Generating clone with prompt: {base_prompt[:100]}...")
         
         # Step 3: Generate the cloned image
-        genai.configure(api_key=get_env("GEMINI_API_KEY"))
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        api_key = get_env("GEMINI_API_KEY")
+        if not api_key:
+            return {
+                "success": False,
+                "error": "GEMINI_API_KEY not set"
+            }
+        
+        client = genai.Client(api_key=api_key)
         
         try:
-            response = model.generate_content([
-                f"Generate a new image based on this description: {base_prompt}",
-                "Create a unique interpretation that captures the essence but is sufficiently different from the original.",
-                "Avoid literal copying of specific details, logos, or copyrighted elements."
-            ])
+            response = client.models.generate_content(
+                model="gemini-2.0-flash-exp",
+                contents=[
+                    f"Generate a new image based on this description: {base_prompt}",
+                    "Create a unique interpretation that captures the essence but is sufficiently different from the original.",
+                    "Avoid literal copying of specific details, logos, or copyrighted elements."
+                ]
+            )
             
             # Check if response has content
             if not response or not hasattr(response, 'text') or not response.text:
