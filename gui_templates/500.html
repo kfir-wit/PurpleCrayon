@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Error</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="centered">
+    <div class="error-card">
+        <h1>500</h1>
+        <p>Something went wrong. {{ message or "Please try again later." }}</p>
+        <a href="{{ url_for('index') }}" class="button-link">Return Home</a>
+    </div>
+</body>
+</html>
+

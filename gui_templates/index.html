@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PurpleCrayon GUI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>PurpleCrayon Image Toolkit</h1>
+        <p>Run fetch, generate, clone, and augment workflows from your browser.</p>
+    </header>
+
+    <main>
+        <section class="panel">
+            <form id="job-form" enctype="multipart/form-data">
+                <div class="field">
+                    <label for="prompt">Prompt</label>
+                    <textarea id="prompt" name="prompt" placeholder="Describe the image you need or the modification to apply" rows="4"></textarea>
+                </div>
+
+                <div class="field">
+                    <label>Operations</label>
+                    <div class="checkbox-grid">
+                        {% for op_key, op_label in operations.items() %}
+                        <label class="checkbox-option">
+                            <input type="checkbox" name="operations" value="{{ op_key }}">
+                            <span>{{ op_label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="inputImage">Input Image (required for clone/augment)</label>
+                    <input type="file" id="inputImage" name="inputImage" accept="image/*">
+                </div>
+
+                <div class="actions">
+                    <button type="submit">Start Job</button>
+                    <button type="button" id="clear-results">Clear Results</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel">
+            <div id="status-line" class="status-line">
+                <span class="label">Status:</span>
+                <span id="status-text">Idle</span>
+                <div class="progress">
+                    <div id="progress-bar"></div>
+                </div>
+            </div>
+
+            <div id="errors"></div>
+
+            <div id="results" class="results-grid"></div>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
+
