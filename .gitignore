@@ -27,3 +27,6 @@ processed/
 # Assets
 assets/
 example_assets/
+
+# Downloaded images
+gui_output/

@@ -25,6 +25,7 @@ dependencies = [
     "pyyaml",
     "replicate",
     "google-genai>=1.46.0",
+    "flask>=3.1.2",
 ]
 
 [tool.setuptools]

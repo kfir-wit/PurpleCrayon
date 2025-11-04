@@ -7,6 +7,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, List, Optional
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import httpx
@@ -273,31 +274,167 @@ def prepare_image_files(
     thumbnails_dir: Path,
 ) -> Dict:
     """Copy or download an image, generate thumbnail, and return metadata."""
-    source_path = Path(image_result.path)
-    ext = source_path.suffix.lower()
+    source_path_str = image_result.path
+    is_url = source_path_str.startswith(("http://", "https://"))
+    
+    print(f"[DEBUG] ===== prepare_image_files START =====")
+    print(f"[DEBUG] source_path_str={source_path_str}")
+    print(f"[DEBUG] is_url={is_url}")
+    print(f"[DEBUG] image_result attributes: {dir(image_result)}")
+    print(f"[DEBUG] image_result.path={getattr(image_result, 'path', 'N/A')}")
+    print(f"[DEBUG] image_result.format={getattr(image_result, 'format', 'N/A')}")
+    print(f"[DEBUG] image_result.provider={getattr(image_result, 'provider', 'N/A')}")
+    print(f"[DEBUG] image_result.source={getattr(image_result, 'source', 'N/A')}")
+    
+    # Initial extension extraction
+    ext = None
+    if is_url:
+        # Parse URL to remove query parameters
+        parsed_url = urlparse(source_path_str)
+        path_without_query = parsed_url.path
+        print(f"[DEBUG] URL parsing: path_without_query={path_without_query}")
+        # Extract extension from path (before any query params)
+        if path_without_query:
+            source_path = Path(path_without_query)
+            ext = source_path.suffix.lower()
+            print(f"[DEBUG] Extracted extension from URL path: {ext}")
+            # Clean up: remove query strings that might have leaked into suffix
+            if "?" in ext:
+                ext = ext.split("?")[0]
+                print(f"[DEBUG] Cleaned extension (removed query): {ext}")
+    else:
+        source_path = Path(source_path_str)
+        ext = source_path.suffix.lower()
+        print(f"[DEBUG] Local file extension: {ext}")
+
+    # Validate extension - must be a valid image extension
+    valid_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".tif"}
+    # Reject numeric-only extensions and invalid ones
+    if not ext or ext not in valid_extensions:
+        print(f"[DEBUG] Extension '{ext}' is invalid, setting to None")
+        ext = None
+    else:
+        print(f"[DEBUG] Extension '{ext}' is valid")
+
+    # If no valid extension found, try to get it from image_result.format
     if not ext:
         fmt_value = (getattr(image_result, "format", "") or "").lower()
+        print(f"[DEBUG] Trying image_result.format: '{fmt_value}'")
         if fmt_value:
+            # Handle MIME types like "image/jpeg"
             if "/" in fmt_value:
                 guessed = mimetypes.guess_extension(fmt_value)
-                ext = guessed or ".png"
+                print(f"[DEBUG] MIME type detected, guessed extension: {guessed}")
+                if guessed and guessed in valid_extensions:
+                    ext = guessed
+                else:
+                    # Try to infer from MIME type
+                    if "jpeg" in fmt_value or "jpg" in fmt_value:
+                        ext = ".jpg"
+                    elif "png" in fmt_value:
+                        ext = ".png"
+                    elif "gif" in fmt_value:
+                        ext = ".gif"
+                    elif "webp" in fmt_value:
+                        ext = ".webp"
+                    print(f"[DEBUG] Inferred extension from MIME: {ext}")
             else:
-                ext = fmt_value if fmt_value.startswith(".") else f".{fmt_value}"
+                # Handle format strings like "jpeg", "png", ".png"
+                fmt_clean = fmt_value.lstrip(".")
+                print(f"[DEBUG] Format string detected: '{fmt_clean}'")
+                if fmt_clean in {"jpg", "jpeg"}:
+                    ext = ".jpg"
+                elif fmt_clean in {"png", "gif", "webp", "bmp", "tiff", "tif"}:
+                    ext = f".{fmt_clean}"
+                else:
+                    ext = None
+                print(f"[DEBUG] Extension from format string: {ext}")
         else:
-            guessed = mimetypes.guess_extension(fmt_value or "")
-            ext = guessed or ".png"
+            print(f"[DEBUG] No format value in image_result")
 
     file_id = uuid4().hex
-    filename = f"{operation}_{file_id}{ext}"
+    # Use temporary extension if we still don't have one (will detect after download)
+    temp_ext = ext or ".tmp"
+    filename = f"{operation}_{file_id}{temp_ext}"
     destination = images_dir / filename
+    print(f"[DEBUG] Using temp extension: {temp_ext}, filename: {filename}")
 
-    if source_path.exists():
-        shutil.copy2(source_path, destination)
+    # Download or copy the image
+    content_type = None
+    if is_url:
+        print(f"[DEBUG] Downloading from URL: {source_path_str}")
+        content_type = download_remote_image(source_path_str, destination)
+        print(f"[DEBUG] Download complete, Content-Type: {content_type}")
     else:
-        download_remote_image(image_result.path, destination)
+        if source_path.exists():
+            print(f"[DEBUG] Copying local file: {source_path}")
+            shutil.copy2(source_path, destination)
+        else:
+            raise FileNotFoundError(f"Local image not found: {source_path}")
+
+    # If we downloaded a file and don't have a valid extension yet, detect format
+    if is_url and (not ext or temp_ext == ".tmp"):
+        print(f"[DEBUG] Need to detect format after download (ext={ext}, temp_ext={temp_ext})")
+        # Try to detect from downloaded file using PIL
+        detected_ext = None
+        try:
+            with Image.open(destination) as img:
+                detected_format = img.format
+                print(f"[DEBUG] PIL detected format: {detected_format}")
+                if detected_format:
+                    fmt_lower = detected_format.lower()
+                    if fmt_lower in {"jpeg", "jpg"}:
+                        detected_ext = ".jpg"
+                    elif fmt_lower in {"png", "gif", "webp", "bmp", "tiff", "tif"}:
+                        detected_ext = f".{fmt_lower}"
+                    print(f"[DEBUG] PIL detected extension: {detected_ext}")
+        except Exception as e:
+            print(f"[DEBUG] PIL detection failed: {e}")
+        
+        # If PIL detection failed, try Content-Type header
+        if not detected_ext and content_type:
+            print(f"[DEBUG] Trying Content-Type header: {content_type}")
+            guessed = mimetypes.guess_extension(content_type)
+            print(f"[DEBUG] mimetypes.guess_extension result: {guessed}")
+            if guessed and guessed in valid_extensions:
+                detected_ext = guessed
+            elif "jpeg" in content_type.lower() or "jpg" in content_type.lower():
+                detected_ext = ".jpg"
+            elif "png" in content_type.lower():
+                detected_ext = ".png"
+            elif "gif" in content_type.lower():
+                detected_ext = ".gif"
+            elif "webp" in content_type.lower():
+                detected_ext = ".webp"
+            print(f"[DEBUG] Content-Type inferred extension: {detected_ext}")
+        
+        # Use detected extension or default to .png
+        if detected_ext:
+            ext = detected_ext
+        else:
+            ext = ".png"
+            print(f"[DEBUG] Using default extension: {ext}")
+        
+        print(f"[DEBUG] Final extension: {ext}, temp_ext was: {temp_ext}")
+        # Rename file if we changed the extension
+        if ext != temp_ext:
+            new_filename = f"{operation}_{file_id}{ext}"
+            new_destination = images_dir / new_filename
+            print(f"[DEBUG] Renaming file from {filename} to {new_filename}")
+            destination.rename(new_destination)
+            destination = new_destination
+            filename = new_filename
+    else:
+        print(f"[DEBUG] Using existing extension: {ext}")
 
     thumbnail_path = thumbnails_dir / filename
-    create_thumbnail(destination, thumbnail_path)
+    print(f"[DEBUG] Creating thumbnail: {thumbnail_path}")
+    try:
+        create_thumbnail(destination, thumbnail_path)
+        print(f"[DEBUG] Thumbnail created successfully")
+    except Exception as e:
+        print(f"[DEBUG] Thumbnail creation failed: {e}")
+        raise
 
     return {
         "id": file_id,
@@ -310,27 +447,49 @@ def prepare_image_files(
         "image_path": str(destination),
         "thumbnail_path": str(thumbnail_path),
     }
+    print(f"[DEBUG] ===== prepare_image_files END (filename={filename}) =====\n")
 
 
-def download_remote_image(url: str, destination: Path) -> None:
-    """Download image from remote URL."""
+def download_remote_image(url: str, destination: Path) -> Optional[str]:
+    """Download image from remote URL and return Content-Type header."""
     if not url:
         raise ValueError("Empty image URL.")
 
+    print(f"[DEBUG] download_remote_image: Starting download from {url}")
     with httpx.Client(follow_redirects=True, timeout=30) as client:
         response = client.get(url)
         response.raise_for_status()
+        print(f"[DEBUG] download_remote_image: Response status={response.status_code}")
+        print(f"[DEBUG] download_remote_image: Response headers={dict(response.headers)}")
+        content_type = response.headers.get("Content-Type")
+        print(f"[DEBUG] download_remote_image: Content-Type={content_type}")
+        print(f"[DEBUG] download_remote_image: Content length={len(response.content)} bytes")
         destination.write_bytes(response.content)
+        print(f"[DEBUG] download_remote_image: File saved to {destination}")
+        # Return Content-Type header for format detection
+        return content_type
 
 
 def create_thumbnail(source: Path, destination: Path, size: int = 256) -> None:
     """Create a square thumbnail while preserving aspect ratio."""
-    with Image.open(source) as img:
-        img.thumbnail((size, size))
-        if img.mode not in ("RGB", "RGBA"):
-            img = img.convert("RGB")
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        img.save(destination)
+    print(f"[DEBUG] create_thumbnail: source={source}, destination={destination}")
+    print(f"[DEBUG] create_thumbnail: source exists={source.exists()}")
+    if source.exists():
+        print(f"[DEBUG] create_thumbnail: source size={source.stat().st_size} bytes")
+    try:
+        with Image.open(source) as img:
+            print(f"[DEBUG] create_thumbnail: Image opened, format={img.format}, mode={img.mode}, size={img.size}")
+            img.thumbnail((size, size))
+            if img.mode not in ("RGB", "RGBA"):
+                img = img.convert("RGB")
+                print(f"[DEBUG] create_thumbnail: Converted to RGB")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            print(f"[DEBUG] create_thumbnail: Saving thumbnail with format={img.format}")
+            img.save(destination)
+            print(f"[DEBUG] create_thumbnail: Thumbnail saved successfully")
+    except Exception as e:
+        print(f"[DEBUG] create_thumbnail: ERROR - {type(e).__name__}: {e}")
+        raise
 
 
 def append_error(job_id: str, message: str) -> List[str]:
@@ -449,6 +608,51 @@ def delete_result(job_id: str, result_id: str):
             continue
 
     return jsonify({"status": "deleted"})
+
+
+@app.route("/api/jobs/<job_id>/results/<result_id>/revise", methods=["POST"])
+def revise_result(job_id: str, result_id: str):
+    """Create a new job that augments the specified result image with a revision prompt."""
+    job = JOBS.get_job(job_id)
+    if not job:
+        abort(404, description="Job not found.")
+
+    # Find the result in the job
+    result = None
+    for entry in job.get("results", []):
+        if entry["id"] == result_id:
+            result = entry
+            break
+
+    if not result:
+        abort(404, description="Result not found.")
+
+    # Get the revision prompt from request
+    data = request.get_json()
+    if not data or "prompt" not in data:
+        return jsonify({"error": "Revision prompt is required."}), 400
+
+    revision_prompt = data.get("prompt", "").strip()
+    if not revision_prompt:
+        return jsonify({"error": "Revision prompt cannot be empty."}), 400
+
+    # Get the image path from the result
+    image_path = Path(result.get("image_path", ""))
+    if not image_path.exists():
+        return jsonify({"error": "Source image file not found."}), 404
+
+    # Create a new job for the revision
+    new_job_record = JOBS.create_job()
+
+    # Start the augment operation in the background
+    start_background_job(
+        new_job_record["id"],
+        revision_prompt,
+        ["augment"],
+        image_path,
+    )
+
+    return jsonify({"job_id": new_job_record["id"]})
 
 
 @app.route("/gui_output/<job_id>/images/<path:filename>")

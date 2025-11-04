@@ -141,6 +141,15 @@ document.addEventListener("DOMContentLoaded", () => {
         downloadLink.textContent = "Download";
         actions.appendChild(downloadLink);
 
+        const reviseBtn = document.createElement("button");
+        reviseBtn.type = "button";
+        reviseBtn.className = "revise";
+        reviseBtn.textContent = "Revise";
+        reviseBtn.addEventListener("click", () => {
+            showReviseModal(jobId, result.id);
+        });
+        actions.appendChild(reviseBtn);
+
         const deleteBtn = document.createElement("button");
         deleteBtn.type = "button";
         deleteBtn.className = "danger";
@@ -211,5 +220,113 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function clearErrors() {
         errorsBox.innerHTML = "";
+    }
+
+    function showReviseModal(jobId, resultId) {
+        // Create modal overlay
+        const overlay = document.createElement("div");
+        overlay.className = "modal-overlay";
+        
+        // Create modal content
+        const modal = document.createElement("div");
+        modal.className = "modal";
+        
+        const title = document.createElement("h2");
+        title.textContent = "Revise Image";
+        modal.appendChild(title);
+        
+        const description = document.createElement("p");
+        description.textContent = "Describe how you'd like to modify this image:";
+        description.className = "modal-description";
+        modal.appendChild(description);
+        
+        const input = document.createElement("textarea");
+        input.id = "revise-prompt";
+        input.placeholder = "e.g., make it brighter, add more contrast, change the background to blue...";
+        input.rows = 4;
+        modal.appendChild(input);
+        
+        const buttonContainer = document.createElement("div");
+        buttonContainer.className = "modal-actions";
+        
+        // Close handler function
+        const closeModal = () => {
+            if (overlay.parentNode) {
+                document.body.removeChild(overlay);
+            }
+            document.removeEventListener("keydown", escapeHandler);
+        };
+        
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.className = "secondary";
+        cancelBtn.addEventListener("click", closeModal);
+        buttonContainer.appendChild(cancelBtn);
+        
+        const submitBtn = document.createElement("button");
+        submitBtn.type = "button";
+        submitBtn.textContent = "Revise";
+        submitBtn.addEventListener("click", () => {
+            const prompt = input.value.trim();
+            if (!prompt) {
+                alert("Please enter a revision prompt.");
+                return;
+            }
+            submitRevision(jobId, resultId, prompt, overlay);
+            document.removeEventListener("keydown", escapeHandler);
+        });
+        buttonContainer.appendChild(submitBtn);
+        
+        modal.appendChild(buttonContainer);
+        overlay.appendChild(modal);
+        
+        // Close on overlay click
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) {
+                closeModal();
+            }
+        });
+        
+        // Close on Escape key
+        const escapeHandler = (e) => {
+            if (e.key === "Escape") {
+                closeModal();
+            }
+        };
+        document.addEventListener("keydown", escapeHandler);
+        
+        document.body.appendChild(overlay);
+        input.focus();
+    }
+
+    function submitRevision(jobId, resultId, prompt, modalOverlay) {
+        fetch(`/api/jobs/${jobId}/results/${resultId}/revise`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ prompt }),
+        })
+            .then(async (response) => {
+                const payload = await response.json();
+                if (!response.ok) {
+                    throw new Error(payload.error || "Failed to create revision job.");
+                }
+                return payload;
+            })
+            .then((payload) => {
+                if (modalOverlay.parentNode) {
+                    document.body.removeChild(modalOverlay);
+                }
+                // Start polling the new job
+                activeJobId = payload.job_id;
+                startPolling(activeJobId);
+                resetStatus("Starting revision...");
+            })
+            .catch((error) => {
+                console.error(error);
+                showErrors([error.message || "Unable to start revision."]);
+            });
     }
 });
