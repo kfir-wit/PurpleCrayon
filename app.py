@@ -25,6 +25,39 @@ from werkzeug.utils import secure_filename
 
 from purplecrayon import AssetRequest, PurpleCrayon
 
+# LangSmith tracing setup
+try:
+    from langsmith import traceable
+    
+    # Enable LangSmith tracing if API key is set
+    LANGCHAIN_API_KEY = os.environ.get("LANGCHAIN_API_KEY")
+    LANGCHAIN_TRACING_V2 = os.environ.get("LANGCHAIN_TRACING_V2", "true").lower() == "true"
+    LANGCHAIN_PROJECT = os.environ.get("LANGCHAIN_PROJECT", "purplecrayon-gui")
+    
+    if LANGCHAIN_API_KEY and LANGCHAIN_TRACING_V2:
+        # Set environment variables for LangSmith to pick up
+        os.environ["LANGCHAIN_TRACING_V2"] = "true"
+        os.environ["LANGCHAIN_PROJECT"] = LANGCHAIN_PROJECT
+        
+        LANGSMITH_ENABLED = True
+        print(f"[INFO] LangSmith tracing enabled for project: {LANGCHAIN_PROJECT}")
+        print(f"[INFO] Set LANGCHAIN_API_KEY to enable tracing. View traces at: https://smith.langchain.com")
+    else:
+        LANGSMITH_ENABLED = False
+        if not LANGCHAIN_API_KEY:
+            print("[INFO] LangSmith tracing disabled: LANGCHAIN_API_KEY not set")
+        else:
+            print("[INFO] LangSmith tracing disabled: LANGCHAIN_TRACING_V2 not enabled")
+except ImportError:
+    # LangSmith not available, create a no-op decorator
+    def traceable(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    
+    LANGSMITH_ENABLED = False
+    print("[INFO] LangSmith not available, tracing disabled")
+
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATE_DIR = BASE_DIR / "gui_templates"
@@ -32,6 +65,12 @@ STATIC_DIR = BASE_DIR / "gui_static"
 OUTPUT_ROOT = BASE_DIR / "gui_output"
 
 app = Flask(__name__, template_folder=str(TEMPLATE_DIR), static_folder=str(STATIC_DIR))
+
+# Debug: Log all incoming requests to API routes
+@app.before_request
+def log_request():
+    if request.path.startswith("/api/"):
+        print(f"[DEBUG] Incoming request: {request.method} {request.path}")
 
 # Ensure output directory exists immediately so the user can inspect it
 OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
@@ -104,6 +143,7 @@ def allowed_operations() -> Dict[str, str]:
     }
 
 
+@traceable(name="start_background_job", run_type="chain")
 def start_background_job(
     job_id: str,
     prompt: str,
@@ -202,6 +242,7 @@ def start_background_job(
     EXECUTOR.submit(runner)
 
 
+@traceable(name="execute_operation", run_type="chain")
 def execute_operation(
     operation: str,
     prompt: str,
@@ -258,7 +299,11 @@ def record_outputs(
                 thumbnails_dir,
             )
         except Exception as exc:  # pragma: no cover - defensive
-            append_error(job_id, f"Failed to store image: {exc}")
+            # Log to console but don't show in GUI - these are non-critical errors
+            # where some images fail to process but the operation continues
+            image_path = getattr(image_result, "path", "unknown")
+            print(f"[WARNING] Failed to store image from {image_path}: {exc}")
+            print(f"[WARNING] This image will be skipped, but the operation will continue.")
             continue
 
         def mutator(job):
@@ -427,6 +472,16 @@ def prepare_image_files(
     else:
         print(f"[DEBUG] Using existing extension: {ext}")
 
+    # Ensure filename has valid extension (should already be fixed, but double-check)
+    if not filename.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
+        # If filename still has invalid extension, use PNG
+        filename = f"{operation}_{file_id}.png"
+        new_destination = images_dir / filename
+        if destination.exists() and destination != new_destination:
+            destination.rename(new_destination)
+            destination = new_destination
+        print(f"[DEBUG] Final filename fix: {filename}")
+    
     thumbnail_path = thumbnails_dir / filename
     print(f"[DEBUG] Creating thumbnail: {thumbnail_path}")
     try:
@@ -436,6 +491,7 @@ def prepare_image_files(
         print(f"[DEBUG] Thumbnail creation failed: {e}")
         raise
 
+    print(f"[DEBUG] ===== prepare_image_files END (filename={filename}) =====\n")
     return {
         "id": file_id,
         "operation": operation,
@@ -447,7 +503,6 @@ def prepare_image_files(
         "image_path": str(destination),
         "thumbnail_path": str(thumbnail_path),
     }
-    print(f"[DEBUG] ===== prepare_image_files END (filename={filename}) =====\n")
 
 
 def download_remote_image(url: str, destination: Path) -> Optional[str]:
@@ -484,8 +539,25 @@ def create_thumbnail(source: Path, destination: Path, size: int = 256) -> None:
                 img = img.convert("RGB")
                 print(f"[DEBUG] create_thumbnail: Converted to RGB")
             destination.parent.mkdir(parents=True, exist_ok=True)
-            print(f"[DEBUG] create_thumbnail: Saving thumbnail with format={img.format}")
-            img.save(destination)
+            
+            # Determine format from destination extension or use PNG as default
+            dest_ext = destination.suffix.lower()
+            format_map = {
+                ".jpg": "JPEG", ".jpeg": "JPEG",
+                ".png": "PNG",
+                ".gif": "GIF",
+                ".webp": "WEBP",
+            }
+            save_format = format_map.get(dest_ext, "PNG")
+            
+            # If destination has invalid extension, ensure it has .png
+            if save_format == "PNG" and dest_ext not in {".png", ".jpg", ".jpeg", ".gif", ".webp"}:
+                # Rename to have .png extension
+                destination = destination.with_suffix(".png")
+                print(f"[DEBUG] create_thumbnail: Fixed invalid extension, using .png")
+            
+            print(f"[DEBUG] create_thumbnail: Saving thumbnail with format={save_format}")
+            img.save(destination, format=save_format)
             print(f"[DEBUG] create_thumbnail: Thumbnail saved successfully")
     except Exception as e:
         print(f"[DEBUG] create_thumbnail: ERROR - {type(e).__name__}: {e}")
@@ -611,10 +683,16 @@ def delete_result(job_id: str, result_id: str):
 
 
 @app.route("/api/jobs/<job_id>/results/<result_id>/revise", methods=["POST"])
+@traceable(name="revise_result", run_type="chain")
 def revise_result(job_id: str, result_id: str):
     """Create a new job that augments the specified result image with a revision prompt."""
+    print(f"[DEBUG] ===== revise_result CALLED =====")
+    print(f"[DEBUG] revise_result: Request method: {request.method}")
+    print(f"[DEBUG] revise_result: Request path: {request.path}")
+    print(f"[DEBUG] revise_result: job_id={job_id}, result_id={result_id}")
     job = JOBS.get_job(job_id)
     if not job:
+        print(f"[DEBUG] revise_result: Job {job_id} not found")
         abort(404, description="Job not found.")
 
     # Find the result in the job
@@ -625,7 +703,10 @@ def revise_result(job_id: str, result_id: str):
             break
 
     if not result:
+        print(f"[DEBUG] revise_result: Result {result_id} not found in job {job_id}")
         abort(404, description="Result not found.")
+
+    print(f"[DEBUG] revise_result: Found result: {result}")
 
     # Get the revision prompt from request
     data = request.get_json()
@@ -636,13 +717,39 @@ def revise_result(job_id: str, result_id: str):
     if not revision_prompt:
         return jsonify({"error": "Revision prompt cannot be empty."}), 400
 
+    print(f"[DEBUG] revise_result: Revision prompt: {revision_prompt}")
+
     # Get the image path from the result
-    image_path = Path(result.get("image_path", ""))
+    image_path_str = result.get("image_path", "")
+    print(f"[DEBUG] revise_result: image_path from result: {image_path_str}")
+    
+    if not image_path_str:
+        return jsonify({"error": "Image path not found in result."}), 404
+    
+    image_path = Path(image_path_str)
+    print(f"[DEBUG] revise_result: Converted to Path: {image_path}")
+    print(f"[DEBUG] revise_result: Path exists: {image_path.exists()}")
+    print(f"[DEBUG] revise_result: Path is absolute: {image_path.is_absolute()}")
+    
     if not image_path.exists():
-        return jsonify({"error": "Source image file not found."}), 404
+        # Try to resolve as absolute path
+        if not image_path.is_absolute():
+            # Try relative to OUTPUT_ROOT
+            possible_path = OUTPUT_ROOT / job_id / "images" / result.get("filename", "")
+            print(f"[DEBUG] revise_result: Trying alternative path: {possible_path}")
+            if possible_path.exists():
+                image_path = possible_path
+                print(f"[DEBUG] revise_result: Using alternative path")
+            else:
+                return jsonify({"error": f"Source image file not found at {image_path} or {possible_path}."}), 404
+        else:
+            return jsonify({"error": f"Source image file not found at {image_path}."}), 404
+
+    print(f"[DEBUG] revise_result: Using image path: {image_path}")
 
     # Create a new job for the revision
     new_job_record = JOBS.create_job()
+    print(f"[DEBUG] revise_result: Created new job: {new_job_record['id']}")
 
     # Start the augment operation in the background
     start_background_job(
@@ -694,5 +801,11 @@ def handle_server_error(err):  # pragma: no cover - defensive
 
 
 if __name__ == "__main__":
+    # Debug: Print all registered routes
+    print("[DEBUG] Registered routes:")
+    for rule in app.url_map.iter_rules():
+        if rule.rule.startswith("/api/"):
+            print(f"  {rule.methods} {rule.rule}")
+    
     # Flask's reloader would duplicate the executor. Disable it by default.
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
